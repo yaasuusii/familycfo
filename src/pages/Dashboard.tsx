@@ -1,23 +1,64 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
 import { useIncome, useExpenses, useBudgets, getCurrentMonth } from "@/hooks/useFinanceData";
 import { formatETB, formatPercent } from "@/lib/format";
-import { TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target, ShieldAlert, AlertTriangle } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, BarChart, Bar, Legend } from "recharts";
 
 const COLORS = ["hsl(220,70%,50%)", "hsl(142,71%,45%)", "hsl(38,92%,50%)", "hsl(280,65%,60%)", "hsl(0,72%,51%)", "hsl(190,80%,45%)", "hsl(330,65%,55%)"];
 
+function getStatusColor(pct: number) {
+  if (pct >= 100) return "text-destructive";
+  if (pct >= 80) return "text-warning";
+  return "text-success";
+}
+
+function getStatusBg(pct: number) {
+  if (pct >= 100) return "bg-destructive";
+  if (pct >= 80) return "bg-warning";
+  return "bg-success";
+}
+
 export default function Dashboard() {
   const month = getCurrentMonth();
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
   const { data: income = [] } = useIncome(month);
   const { data: expenses = [] } = useExpenses(month);
-  const { data: budgets = [] } = useBudgets();
+  const { data: budgets = [] } = useBudgets(currentMonth, currentYear);
 
   const totalIncome = useMemo(() => income.reduce((s, i) => s + Number(i.amount), 0), [income]);
   const totalExpenses = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
   const remaining = totalIncome - totalExpenses;
   const grocerySpend = useMemo(() => expenses.filter((e) => e.category === "Grocery").reduce((s, e) => s + Number(e.amount), 0), [expenses]);
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
+
+  // Budget calculations
+  const budgetStats = useMemo(() => {
+    return budgets.map((b) => {
+      const actual = expenses.filter((e) => e.category === b.category).reduce((s, e) => s + Number(e.amount), 0);
+      const limit = Number(b.monthly_limit);
+      const pct = limit > 0 ? (actual / limit) * 100 : 0;
+      const remainingBudget = limit - actual;
+      return { category: b.category, limit, actual, pct, remaining: remainingBudget };
+    });
+  }, [budgets, expenses]);
+
+  const totalBudget = budgetStats.reduce((s, b) => s + b.limit, 0);
+  const totalBudgetSpent = budgetStats.reduce((s, b) => s + b.actual, 0);
+  const overallBudgetPct = totalBudget > 0 ? (totalBudgetSpent / totalBudget) * 100 : 0;
+  const anyExceeded = budgetStats.some((b) => b.pct >= 100);
+  const overallWarning = overallBudgetPct > 90;
+
+  // Safe to Spend = Total Income - Total Spent - Remaining Reserved Budget
+  const remainingReserved = budgetStats
+    .filter((b) => b.pct < 100)
+    .reduce((s, b) => s + Math.max(b.remaining, 0), 0);
+  const safeToSpend = totalIncome - totalExpenses - remainingReserved;
 
   // Category breakdown for pie chart
   const categoryData = useMemo(() => {
@@ -33,16 +74,7 @@ export default function Dashboard() {
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([date, amount]) => ({ date: date.slice(5), amount }));
   }, [expenses]);
 
-  // Budget vs Actual
-  const budgetComparison = useMemo(() => {
-    return budgets.map((b) => {
-      const actual = expenses.filter((e) => e.category === b.category).reduce((s, e) => s + Number(e.amount), 0);
-      return { category: b.category, budget: Number(b.monthly_limit), actual };
-    });
-  }, [budgets, expenses]);
-
   // Forecast
-  const now = new Date();
   const dayOfMonth = now.getDate();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const projectedExpenses = dayOfMonth > 0 ? (totalExpenses / dayOfMonth) * daysInMonth : 0;
@@ -51,6 +83,20 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
+
+      {/* Alert Banners */}
+      {anyExceeded && (
+        <Alert variant="destructive">
+          <ShieldAlert className="h-4 w-4" />
+          <AlertDescription>One or more budget categories have been exceeded!</AlertDescription>
+        </Alert>
+      )}
+      {!anyExceeded && overallWarning && (
+        <Alert className="border-warning/50 text-warning [&>svg]:text-warning">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>Overall budget usage is above 90% ({formatPercent(overallBudgetPct)})</AlertDescription>
+        </Alert>
+      )}
 
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -62,9 +108,69 @@ export default function Dashboard() {
         <SummaryCard title="Projected Balance" value={formatETB(projectedRemaining)} icon={<Target className="h-4 w-4 text-primary" />} />
       </div>
 
+      {/* Budget Overview + Safe to Spend */}
+      {budgetStats.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Budget Overview</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Total Allocated</span>
+                <span className="font-medium text-foreground">{formatETB(totalBudget)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Total Spent</span>
+                <span className="font-medium text-foreground">{formatETB(totalBudgetSpent)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Remaining</span>
+                <span className="font-medium text-foreground">{formatETB(totalBudget - totalBudgetSpent)}</span>
+              </div>
+              <Progress value={Math.min(overallBudgetPct, 100)} className="h-2.5" />
+              <p className={`text-sm font-medium ${getStatusColor(overallBudgetPct)}`}>
+                {formatPercent(overallBudgetPct)} used
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-base">Safe to Spend</CardTitle></CardHeader>
+            <CardContent className="flex flex-col items-center justify-center py-4">
+              <p className={`text-3xl font-bold ${safeToSpend >= 0 ? "text-success" : "text-destructive"}`}>
+                {formatETB(safeToSpend)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">Income − Spent − Reserved Budget</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Category Budget Progress Bars */}
+      {budgetStats.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Category Budgets</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {budgetStats.map((b) => (
+              <div key={b.category} className="space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium text-foreground">{b.category}</span>
+                  <span className={`font-medium ${getStatusColor(b.pct)}`}>
+                    {formatETB(b.actual)} / {formatETB(b.limit)} ({formatPercent(b.pct)})
+                  </span>
+                </div>
+                <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className={`h-full rounded-full transition-all ${getStatusBg(b.pct)}`}
+                    style={{ width: `${Math.min(b.pct, 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Charts row */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Pie chart */}
         <Card>
           <CardHeader><CardTitle className="text-base">Expense Breakdown</CardTitle></CardHeader>
           <CardContent>
@@ -81,7 +187,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Line chart */}
         <Card>
           <CardHeader><CardTitle className="text-base">Daily Spending Trend</CardTitle></CardHeader>
           <CardContent>
@@ -99,18 +204,18 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Budget comparison */}
-      {budgetComparison.length > 0 && (
+      {/* Budget comparison bar chart */}
+      {budgetStats.length > 0 && (
         <Card>
           <CardHeader><CardTitle className="text-base">Budget vs Actual</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={budgetComparison}>
+              <BarChart data={budgetStats}>
                 <XAxis dataKey="category" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip formatter={(v: number) => formatETB(v)} />
                 <Legend />
-                <Bar dataKey="budget" fill="hsl(220,70%,50%)" name="Budget" />
+                <Bar dataKey="limit" fill="hsl(220,70%,50%)" name="Budget" />
                 <Bar dataKey="actual" fill="hsl(38,92%,50%)" name="Actual" />
               </BarChart>
             </ResponsiveContainer>

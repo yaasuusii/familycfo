@@ -48,11 +48,18 @@ export function useCategories() {
   });
 }
 
-export function useBudgets() {
+export function useBudgets(month?: number, year?: number) {
+  const now = new Date();
+  const m = month ?? now.getMonth() + 1;
+  const y = year ?? now.getFullYear();
   return useQuery({
-    queryKey: ["budgets"],
+    queryKey: ["budgets", m, y],
     queryFn: async () => {
-      const { data, error } = await supabase.from("budgets").select("*");
+      const { data, error } = await supabase
+        .from("budgets")
+        .select("*")
+        .eq("month", m)
+        .eq("year", y);
       if (error) throw error;
       return data;
     },

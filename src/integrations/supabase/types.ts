@@ -19,19 +19,28 @@ export type Database = {
           category: string
           created_at: string
           id: string
+          income_target: number | null
+          month: number
           monthly_limit: number
+          year: number
         }
         Insert: {
           category: string
           created_at?: string
           id?: string
+          income_target?: number | null
+          month?: number
           monthly_limit: number
+          year?: number
         }
         Update: {
           category?: string
           created_at?: string
           id?: string
+          income_target?: number | null
+          month?: number
           monthly_limit?: number
+          year?: number
         }
         Relationships: []
       }
