@@ -1,15 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+function getMonthEndDate(month: string): string {
+  const [year, mon] = month.split("-").map(Number);
+  const lastDay = new Date(year, mon, 0).getDate();
+  return `${month}-${String(lastDay).padStart(2, "0")}`;
+}
+
 export function useIncome(month?: string) {
   return useQuery({
     queryKey: ["income", month],
     queryFn: async () => {
       let query = supabase.from("income").select("*").order("date", { ascending: false });
       if (month) {
-        const start = `${month}-01`;
-        const end = `${month}-31`;
-        query = query.gte("date", start).lte("date", end);
+        query = query.gte("date", `${month}-01`).lte("date", getMonthEndDate(month));
       }
       const { data, error } = await query;
       if (error) throw error;
@@ -24,9 +28,7 @@ export function useExpenses(month?: string) {
     queryFn: async () => {
       let query = supabase.from("expenses").select("*").order("date", { ascending: false });
       if (month) {
-        const start = `${month}-01`;
-        const end = `${month}-31`;
-        query = query.gte("date", start).lte("date", end);
+        query = query.gte("date", `${month}-01`).lte("date", getMonthEndDate(month));
       }
       const { data, error } = await query;
       if (error) throw error;
