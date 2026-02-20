@@ -1,76 +1,28 @@
 
+## Fix: All Data Queries Failing Due to Invalid Date Range
 
-## Personal Finance & Household Expense Management System
+### Root Cause
+The `useIncome` and `useExpenses` hooks in `src/hooks/useFinanceData.ts` construct a date range using a hardcoded `-31` suffix for the end of the month (e.g., `2026-02-31`). February only has 28 days, so the database rejects every query with: `"date/time field value out of range"`.
 
-A professional, clean household financial control system for two users (Admin + Member) with ETB currency, built with Supabase Cloud backend.
+Data inserts work fine (they return 201), but the SELECT queries all fail, which is why forms show "success" but no data ever appears in tables, charts, or dashboard cards.
 
----
+### The Fix
+Update `src/hooks/useFinanceData.ts` to calculate the correct last day of each month dynamically. Instead of:
+```
+const end = `${month}-31`;
+```
+Use JavaScript's `new Date(year, month, 0).getDate()` trick to get the actual last day (28, 29, 30, or 31).
 
-### Phase 1: Authentication & User Management
-- **Supabase Auth** with email/password login
-- Admin (Husband) signs up first, then invites Wife via an invite flow
-- Roles stored in a separate `user_roles` table (admin/member) — not on the profiles table
-- `profiles` table with name, email, and created_at
-- Shared household context — both users see the same financial data
+### What This Fixes (All Pages)
+- **Dashboard** -- Summary cards, pie chart, line chart, budget comparison, forecast card
+- **Income** -- Monthly total and table listing
+- **Expenses** -- Filtered table and total
+- **Grocery Tracker** -- Monthly total, weekly average, percentage, trend chart
+- **Forecasting** -- All projection calculations
+- **Reports** -- Monthly summaries, category breakdown, CSV export
+- **Budgets** -- Budget vs actual comparison (depends on expenses query)
 
-### Phase 2: Database Schema
-- **profiles** — linked to auth.users
-- **user_roles** — admin/member roles with RLS security definer function
-- **income** — date, source (Salary/Business/Other), amount, notes, user_id
-- **expenses** — date, category, amount, payment_method (Cash/Bank/Telebirr), notes, user_id
-- **budgets** — category, monthly_limit
-- **categories** — customizable expense categories
-- RLS policies so both household members can read/write all shared data, with "added by" tracking
+### Technical Detail
+Only one file needs to change: `src/hooks/useFinanceData.ts`. A helper function will parse the `YYYY-MM` month string, compute the real last day, and use that in both `useIncome` and `useExpenses`.
 
-### Phase 3: Layout & Navigation
-- Clean, minimal light theme — white/light gray, subtle shadows, professional banking-app aesthetic
-- Sidebar navigation: Dashboard, Income, Expenses, Grocery Tracker, Budgets, Reports, Settings
-- Mobile-responsive with collapsible sidebar
-- All amounts displayed in ETB
-
-### Phase 4: Dashboard (Home Page)
-- Summary cards: Total Monthly Income, Total Monthly Expenses, Remaining Balance, Grocery Spending, Savings Rate %
-- Budget vs Actual comparison bar chart
-- Expense breakdown by category (pie chart)
-- Daily spending trend (line chart)
-- End-of-month forecast projection card
-
-### Phase 5: Income Module
-- Add/edit/delete income entries with date, source, amount, notes
-- Auto-records who added it
-- Monthly and yearly summary tables
-
-### Phase 6: Expense Module
-- Add/edit/delete expenses with date, category, amount, payment method, notes
-- Auto-records who added it
-- Filters: date range, category, user
-- Sortable table view
-
-### Phase 7: Grocery Tracker
-- Dedicated view filtering expenses to Grocery category
-- Cards: monthly grocery total, average weekly cost, grocery % of total expenses
-- Grocery spending trend line chart
-
-### Phase 8: Budgeting System
-- Set monthly income target and per-category budget limits
-- Visual budget usage bars with percentage
-- Warning indicators when a category exceeds its budget
-- Remaining allowed spending per category
-
-### Phase 9: Forecasting
-- Based on current month's spending pace, estimate total monthly expense
-- Estimated remaining balance at month end
-- "Safe to spend" daily amount card
-
-### Phase 10: Reports Page
-- Monthly and yearly summary views
-- Income vs Expense trend chart
-- Category breakdown table
-- Export to CSV functionality
-
-### Phase 11: Settings
-- Add/edit custom expense categories
-- Manage household users (admin can invite/remove)
-- Set/update monthly budgets
-- Reset monthly view
-
+No database changes are needed. No other files need modification.
