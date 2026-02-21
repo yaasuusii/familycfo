@@ -4,17 +4,21 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useIncome, useExpenses, getCurrentMonth } from "@/hooks/useFinanceData";
+import { useLoans, useLoanRepayments } from "@/hooks/useLoanData";
 import { formatETB } from "@/lib/format";
 import { Download } from "lucide-react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line } from "recharts";
 
 export default function Reports() {
   const [month, setMonth] = useState(getCurrentMonth());
   const { data: income = [] } = useIncome(month);
   const { data: expenses = [] } = useExpenses(month);
+  const { data: allLoans = [] } = useLoans();
 
   const totalIncome = income.reduce((s, i) => s + Number(i.amount), 0);
   const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
+
+  const loanRepaymentTotal = useMemo(() => expenses.filter((e) => e.category === "Loan Repayment").reduce((s, e) => s + Number(e.amount), 0), [expenses]);
 
   const categoryBreakdown = useMemo(() => {
     const map: Record<string, number> = {};
@@ -33,6 +37,12 @@ export default function Reports() {
     }
     return arr;
   }, []);
+
+  // Net Liability vs Assets
+  const activeLoans = useMemo(() => allLoans.filter((l) => l.status === "active"), [allLoans]);
+  const totalLiability = activeLoans.filter((l) => l.loan_type === "taken").reduce((s, l) => s + Number(l.remaining_balance), 0);
+  const totalAssets = activeLoans.filter((l) => l.loan_type === "given").reduce((s, l) => s + Number(l.remaining_balance), 0);
+  const liabilityVsAssets = [{ name: "Liabilities (Taken)", amount: totalLiability }, { name: "Assets (Given)", amount: totalAssets }];
 
   const exportCSV = () => {
     const rows = [["Type", "Date", "Category/Source", "Amount", "Notes"].join(",")];
@@ -67,6 +77,16 @@ export default function Reports() {
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Net</p><p className={`text-xl font-bold ${totalIncome - totalExpenses >= 0 ? "text-success" : "text-destructive"}`}>{formatETB(totalIncome - totalExpenses)}</p></CardContent></Card>
       </div>
 
+      {/* Loan Repayments Summary */}
+      {loanRepaymentTotal > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Total Loan Repayments This Month</p>
+            <p className="text-xl font-bold text-foreground">{formatETB(loanRepaymentTotal)}</p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader><CardTitle className="text-base">Income vs Expenses</CardTitle></CardHeader>
         <CardContent>
@@ -80,6 +100,23 @@ export default function Reports() {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+
+      {/* Net Liability vs Assets */}
+      {(totalLiability > 0 || totalAssets > 0) && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Net Liability vs Assets</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={liabilityVsAssets}>
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip formatter={(v: number) => formatETB(v)} />
+                <Bar dataKey="amount" fill="hsl(38,92%,50%)" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader><CardTitle className="text-base">Category Breakdown</CardTitle></CardHeader>
