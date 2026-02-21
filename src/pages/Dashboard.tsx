@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { useIncome, useExpenses, useBudgets, getCurrentMonth } from "@/hooks/useFinanceData";
+import { useLoans } from "@/hooks/useLoanData";
 import { formatETB, formatPercent } from "@/lib/format";
-import { TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target, ShieldAlert, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target, ShieldAlert, AlertTriangle, Landmark, HandCoins, Scale } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, BarChart, Bar, Legend } from "recharts";
 
 const COLORS = ["hsl(220,70%,50%)", "hsl(142,71%,45%)", "hsl(38,92%,50%)", "hsl(280,65%,60%)", "hsl(0,72%,51%)", "hsl(190,80%,45%)", "hsl(330,65%,55%)"];
@@ -30,12 +31,29 @@ export default function Dashboard() {
   const { data: income = [] } = useIncome(month);
   const { data: expenses = [] } = useExpenses(month);
   const { data: budgets = [] } = useBudgets(currentMonth, currentYear);
+  const { data: allLoans = [] } = useLoans();
+
+  const activeLoans = useMemo(() => allLoans.filter((l) => l.status === "active"), [allLoans]);
+  const activeTaken = useMemo(() => activeLoans.filter((l) => l.loan_type === "taken"), [activeLoans]);
+  const activeGiven = useMemo(() => activeLoans.filter((l) => l.loan_type === "given"), [activeLoans]);
+  const totalDebt = activeTaken.reduce((s, l) => s + Number(l.remaining_balance), 0);
+  const totalReceivable = activeGiven.reduce((s, l) => s + Number(l.remaining_balance), 0);
+
+  const hasOverdueLoan = activeLoans.some((l) => l.end_date && new Date(l.end_date) < now);
+  const hasDueSoonLoan = activeLoans.some((l) => {
+    if (!l.end_date) return false;
+    const diff = (new Date(l.end_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    return diff > 0 && diff <= 5;
+  });
 
   const totalIncome = useMemo(() => income.reduce((s, i) => s + Number(i.amount), 0), [income]);
   const totalExpenses = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
   const remaining = totalIncome - totalExpenses;
   const grocerySpend = useMemo(() => expenses.filter((e) => e.category === "Grocery").reduce((s, e) => s + Number(e.amount), 0), [expenses]);
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
+
+  const loanRepaymentThisMonth = useMemo(() => expenses.filter((e) => e.category === "Loan Repayment").reduce((s, e) => s + Number(e.amount), 0), [expenses]);
+  const debtToIncomeRatio = totalIncome > 0 ? (loanRepaymentThisMonth / totalIncome) * 100 : 0;
 
   // Budget calculations
   const budgetStats = useMemo(() => {
@@ -54,27 +72,23 @@ export default function Dashboard() {
   const anyExceeded = budgetStats.some((b) => b.pct >= 100);
   const overallWarning = overallBudgetPct > 90;
 
-  // Safe to Spend = Total Income - Total Spent - Remaining Reserved Budget
   const remainingReserved = budgetStats
     .filter((b) => b.pct < 100)
     .reduce((s, b) => s + Math.max(b.remaining, 0), 0);
   const safeToSpend = totalIncome - totalExpenses - remainingReserved;
 
-  // Category breakdown for pie chart
   const categoryData = useMemo(() => {
     const map: Record<string, number> = {};
     expenses.forEach((e) => { map[e.category] = (map[e.category] || 0) + Number(e.amount); });
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [expenses]);
 
-  // Daily trend for line chart
   const dailyTrend = useMemo(() => {
     const map: Record<string, number> = {};
     expenses.forEach((e) => { map[e.date] = (map[e.date] || 0) + Number(e.amount); });
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([date, amount]) => ({ date: date.slice(5), amount }));
   }, [expenses]);
 
-  // Forecast
   const dayOfMonth = now.getDate();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const projectedExpenses = dayOfMonth > 0 ? (totalExpenses / dayOfMonth) * daysInMonth : 0;
@@ -97,6 +111,18 @@ export default function Dashboard() {
           <AlertDescription>Overall budget usage is above 90% ({formatPercent(overallBudgetPct)})</AlertDescription>
         </Alert>
       )}
+      {hasOverdueLoan && (
+        <Alert variant="destructive">
+          <ShieldAlert className="h-4 w-4" />
+          <AlertDescription>One or more loans are overdue!</AlertDescription>
+        </Alert>
+      )}
+      {!hasOverdueLoan && hasDueSoonLoan && (
+        <Alert className="border-warning/50 text-warning [&>svg]:text-warning">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>Loan payments due within 5 days.</AlertDescription>
+        </Alert>
+      )}
 
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -107,6 +133,17 @@ export default function Dashboard() {
         <SummaryCard title="Savings Rate" value={formatPercent(savingsRate)} icon={<PiggyBank className="h-4 w-4 text-success" />} />
         <SummaryCard title="Projected Balance" value={formatETB(projectedRemaining)} icon={<Target className="h-4 w-4 text-primary" />} />
       </div>
+
+      {/* Loan Summary Cards */}
+      {allLoans.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <SummaryCard title="Active Loans Taken" value={String(activeTaken.length)} icon={<Landmark className="h-4 w-4 text-destructive" />} />
+          <SummaryCard title="Active Loans Given" value={String(activeGiven.length)} icon={<HandCoins className="h-4 w-4 text-success" />} />
+          <SummaryCard title="Total Debt" value={formatETB(totalDebt)} icon={<TrendingDown className="h-4 w-4 text-destructive" />} />
+          <SummaryCard title="Total Receivable" value={formatETB(totalReceivable)} icon={<TrendingUp className="h-4 w-4 text-success" />} />
+          <SummaryCard title="Debt-to-Income" value={formatPercent(debtToIncomeRatio)} icon={<Scale className="h-4 w-4 text-warning" />} />
+        </div>
+      )}
 
       {/* Budget Overview + Safe to Spend */}
       {budgetStats.length > 0 && (

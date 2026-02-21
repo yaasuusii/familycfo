@@ -125,6 +125,95 @@ export type Database = {
         }
         Relationships: []
       }
+      loan_repayments: {
+        Row: {
+          amount_paid: number
+          created_at: string
+          created_by: string
+          id: string
+          loan_id: string
+          notes: string | null
+          payment_date: string
+          remaining_balance: number
+        }
+        Insert: {
+          amount_paid: number
+          created_at?: string
+          created_by: string
+          id?: string
+          loan_id: string
+          notes?: string | null
+          payment_date?: string
+          remaining_balance: number
+        }
+        Update: {
+          amount_paid?: number
+          created_at?: string
+          created_by?: string
+          id?: string
+          loan_id?: string
+          notes?: string | null
+          payment_date?: string
+          remaining_balance?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "loan_repayments_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      loans: {
+        Row: {
+          created_at: string
+          created_by: string
+          end_date: string | null
+          id: string
+          interest_rate: number | null
+          lender_or_borrower_name: string
+          loan_type: string
+          principal_amount: number
+          remaining_balance: number
+          repayment_frequency: string
+          start_date: string
+          status: string
+          total_amount_due: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          end_date?: string | null
+          id?: string
+          interest_rate?: number | null
+          lender_or_borrower_name: string
+          loan_type: string
+          principal_amount: number
+          remaining_balance: number
+          repayment_frequency?: string
+          start_date: string
+          status?: string
+          total_amount_due: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          end_date?: string | null
+          id?: string
+          interest_rate?: number | null
+          lender_or_borrower_name?: string
+          loan_type?: string
+          principal_amount?: number
+          remaining_balance?: number
+          repayment_frequency?: string
+          start_date?: string
+          status?: string
+          total_amount_due?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

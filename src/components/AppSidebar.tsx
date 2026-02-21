@@ -8,6 +8,7 @@ import {
   Settings,
   LogOut,
   LineChart,
+  Landmark,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,6 +33,7 @@ const navItems = [
   { title: "Expenses", url: "/expenses", icon: TrendingDown },
   { title: "Grocery Tracker", url: "/grocery", icon: ShoppingCart },
   { title: "Budgets", url: "/budgets", icon: PiggyBank },
+  { title: "Loans", url: "/loans", icon: Landmark },
   { title: "Forecasting", url: "/forecasting", icon: LineChart },
   { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Settings", url: "/settings", icon: Settings },
