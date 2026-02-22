@@ -1,13 +1,15 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useIncome, useExpenses, getCurrentMonth } from "@/hooks/useFinanceData";
+import { useUpcomingRecurringForMonth } from "@/hooks/useRecurringData";
 import { formatETB } from "@/lib/format";
-import { Target, TrendingDown, Wallet, CalendarDays } from "lucide-react";
+import { Target, TrendingDown, TrendingUp, Wallet, CalendarDays, RefreshCw } from "lucide-react";
 
 export default function Forecasting() {
   const month = getCurrentMonth();
   const { data: income = [] } = useIncome(month);
   const { data: expenses = [] } = useExpenses(month);
+  const { upcomingExpenses, upcomingIncome } = useUpcomingRecurringForMonth();
 
   const totalIncome = useMemo(() => income.reduce((s, i) => s + Number(i.amount), 0), [income]);
   const totalExpenses = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
@@ -19,7 +21,7 @@ export default function Forecasting() {
 
   const dailyRate = dayOfMonth > 0 ? totalExpenses / dayOfMonth : 0;
   const projectedTotal = dailyRate * daysInMonth;
-  const projectedRemaining = totalIncome - projectedTotal;
+  const adjustedProjectedBalance = (totalIncome + upcomingIncome) - (projectedTotal + upcomingExpenses);
   const safeToSpend = daysRemaining > 0 ? Math.max(0, (totalIncome - totalExpenses) / daysRemaining) : 0;
 
   return (
@@ -28,9 +30,15 @@ export default function Forecasting() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <ForecastCard title="Projected Monthly Expense" value={formatETB(projectedTotal)} subtitle={`Based on ${formatETB(dailyRate)}/day average`} icon={<TrendingDown className="h-5 w-5 text-destructive" />} />
-        <ForecastCard title="Projected Remaining" value={formatETB(projectedRemaining)} subtitle={projectedRemaining < 0 ? "⚠️ Projected deficit" : "End-of-month projection"} icon={<Wallet className="h-5 w-5 text-primary" />} danger={projectedRemaining < 0} />
+        <ForecastCard title="Projected Balance" value={formatETB(adjustedProjectedBalance)} subtitle={adjustedProjectedBalance < 0 ? "⚠️ Projected deficit" : "Includes recurring transactions"} icon={<Wallet className="h-5 w-5 text-primary" />} danger={adjustedProjectedBalance < 0} />
         <ForecastCard title="Safe to Spend Daily" value={formatETB(safeToSpend)} subtitle={`${daysRemaining} days remaining`} icon={<Target className="h-5 w-5 text-success" />} />
         <ForecastCard title="Current Balance" value={formatETB(totalIncome - totalExpenses)} subtitle={`Day ${dayOfMonth} of ${daysInMonth}`} icon={<CalendarDays className="h-5 w-5 text-muted-foreground" />} />
+      </div>
+
+      {/* Recurring forecast cards */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <ForecastCard title="Upcoming Recurring Income" value={formatETB(upcomingIncome)} subtitle="Remaining this month" icon={<TrendingUp className="h-5 w-5 text-success" />} />
+        <ForecastCard title="Upcoming Recurring Expenses" value={formatETB(upcomingExpenses)} subtitle="Remaining this month" icon={<RefreshCw className="h-5 w-5 text-destructive" />} />
       </div>
 
       <Card>

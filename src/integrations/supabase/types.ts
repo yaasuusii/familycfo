@@ -69,8 +69,10 @@ export type Database = {
           created_at: string
           date: string
           id: string
+          is_auto_generated: boolean
           notes: string | null
           payment_method: string
+          recurring_id: string | null
           user_id: string
         }
         Insert: {
@@ -79,8 +81,10 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
+          is_auto_generated?: boolean
           notes?: string | null
           payment_method: string
+          recurring_id?: string | null
           user_id: string
         }
         Update: {
@@ -89,8 +93,10 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
+          is_auto_generated?: boolean
           notes?: string | null
           payment_method?: string
+          recurring_id?: string | null
           user_id?: string
         }
         Relationships: []
@@ -101,7 +107,9 @@ export type Database = {
           created_at: string
           date: string
           id: string
+          is_auto_generated: boolean
           notes: string | null
+          recurring_id: string | null
           source: string
           user_id: string
         }
@@ -110,7 +118,9 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
+          is_auto_generated?: boolean
           notes?: string | null
+          recurring_id?: string | null
           source: string
           user_id: string
         }
@@ -119,7 +129,9 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
+          is_auto_generated?: boolean
           notes?: string | null
+          recurring_id?: string | null
           source?: string
           user_id?: string
         }
@@ -235,6 +247,93 @@ export type Database = {
           id?: string
           name?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      recurring_expenses: {
+        Row: {
+          amount: number
+          auto_post: boolean
+          category: string
+          created_at: string
+          created_by: string
+          end_date: string | null
+          frequency: string
+          id: string
+          is_active: boolean
+          last_generated_date: string | null
+          start_date: string
+          title: string
+        }
+        Insert: {
+          amount: number
+          auto_post?: boolean
+          category: string
+          created_at?: string
+          created_by: string
+          end_date?: string | null
+          frequency: string
+          id?: string
+          is_active?: boolean
+          last_generated_date?: string | null
+          start_date: string
+          title: string
+        }
+        Update: {
+          amount?: number
+          auto_post?: boolean
+          category?: string
+          created_at?: string
+          created_by?: string
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_generated_date?: string | null
+          start_date?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      recurring_income: {
+        Row: {
+          amount: number
+          auto_post: boolean
+          created_at: string
+          created_by: string
+          end_date: string | null
+          frequency: string
+          id: string
+          is_active: boolean
+          last_generated_date: string | null
+          start_date: string
+          title: string
+        }
+        Insert: {
+          amount: number
+          auto_post?: boolean
+          created_at?: string
+          created_by: string
+          end_date?: string | null
+          frequency: string
+          id?: string
+          is_active?: boolean
+          last_generated_date?: string | null
+          start_date: string
+          title: string
+        }
+        Update: {
+          amount?: number
+          auto_post?: boolean
+          created_at?: string
+          created_by?: string
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_generated_date?: string | null
+          start_date?: string
+          title?: string
         }
         Relationships: []
       }
