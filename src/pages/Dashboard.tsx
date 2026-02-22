@@ -4,8 +4,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { useIncome, useExpenses, useBudgets, getCurrentMonth } from "@/hooks/useFinanceData";
 import { useLoans } from "@/hooks/useLoanData";
+import { useUpcomingRecurring } from "@/hooks/useRecurringData";
 import { formatETB, formatPercent } from "@/lib/format";
-import { TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target, ShieldAlert, AlertTriangle, Landmark, HandCoins, Scale } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target, ShieldAlert, AlertTriangle, Landmark, HandCoins, Scale, RefreshCw } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, BarChart, Bar, Legend } from "recharts";
 
 const COLORS = ["hsl(220,70%,50%)", "hsl(142,71%,45%)", "hsl(38,92%,50%)", "hsl(280,65%,60%)", "hsl(0,72%,51%)", "hsl(190,80%,45%)", "hsl(330,65%,55%)"];
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const { data: expenses = [] } = useExpenses(month);
   const { data: budgets = [] } = useBudgets(currentMonth, currentYear);
   const { data: allLoans = [] } = useLoans();
+  const upcomingItems = useUpcomingRecurring();
 
   const activeLoans = useMemo(() => allLoans.filter((l) => l.status === "active"), [allLoans]);
   const activeTaken = useMemo(() => activeLoans.filter((l) => l.loan_type === "taken"), [activeLoans]);
@@ -199,6 +201,28 @@ export default function Dashboard() {
                     className={`h-full rounded-full transition-all ${getStatusBg(b.pct)}`}
                     style={{ width: `${Math.min(b.pct, 100)}%` }}
                   />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Upcoming Recurring Payments */}
+      {upcomingItems.length > 0 && (
+        <Card>
+          <CardHeader><CardTitle className="text-base flex items-center gap-2"><RefreshCw className="h-4 w-4" />Upcoming in Next 7 Days</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {upcomingItems.map((item) => (
+              <div key={item.id + item.dueDate.toISOString()} className={`flex justify-between items-center text-sm py-1 border-b last:border-0 ${item.isOverdue ? "text-destructive" : ""}`}>
+                <div>
+                  <span className="font-medium">{item.title}</span>
+                  {item.category && <span className="text-muted-foreground ml-2 text-xs">({item.category})</span>}
+                  {item.isOverdue && <span className="ml-2 text-xs font-semibold">OVERDUE</span>}
+                </div>
+                <div className="text-right">
+                  <span className="font-medium">{formatETB(item.amount)}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">{item.dueDate.toLocaleDateString()}</span>
                 </div>
               </div>
             ))}
