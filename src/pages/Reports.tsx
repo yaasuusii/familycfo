@@ -4,16 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useIncome, useExpenses, getCurrentMonth } from "@/hooks/useFinanceData";
-import { useLoans, useLoanRepayments } from "@/hooks/useLoanData";
-import { formatETB } from "@/lib/format";
+import { useLoans } from "@/hooks/useLoanData";
+import { formatETB, formatGregorianToEthiopian } from "@/lib/format";
+import { getEthiopianMonthOptions, parseEthMonth, getEthiopianMonthDateRange } from "@/lib/ethiopian-calendar";
 import { Download } from "lucide-react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 
 export default function Reports() {
   const [month, setMonth] = useState(getCurrentMonth());
   const { data: income = [] } = useIncome(month);
   const { data: expenses = [] } = useExpenses(month);
   const { data: allLoans = [] } = useLoans();
+
+  const monthOptions = useMemo(() => getEthiopianMonthOptions(), []);
 
   const totalIncome = income.reduce((s, i) => s + Number(i.amount), 0);
   const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
@@ -28,26 +31,15 @@ export default function Reports() {
 
   const incomeVsExpense = [{ name: "Income", amount: totalIncome }, { name: "Expenses", amount: totalExpenses }];
 
-  const months = useMemo(() => {
-    const arr: string[] = [];
-    const now = new Date();
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      arr.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-    }
-    return arr;
-  }, []);
-
-  // Net Liability vs Assets
   const activeLoans = useMemo(() => allLoans.filter((l) => l.status === "active"), [allLoans]);
   const totalLiability = activeLoans.filter((l) => l.loan_type === "taken").reduce((s, l) => s + Number(l.remaining_balance), 0);
   const totalAssets = activeLoans.filter((l) => l.loan_type === "given").reduce((s, l) => s + Number(l.remaining_balance), 0);
   const liabilityVsAssets = [{ name: "Liabilities (Taken)", amount: totalLiability }, { name: "Assets (Given)", amount: totalAssets }];
 
   const exportCSV = () => {
-    const rows = [["Type", "Date", "Category/Source", "Amount", "Notes"].join(",")];
-    income.forEach((i) => rows.push(["Income", i.date, i.source, String(i.amount), `"${i.notes || ""}"`].join(",")));
-    expenses.forEach((e) => rows.push(["Expense", e.date, e.category, String(e.amount), `"${e.notes || ""}"`].join(",")));
+    const rows = [["Type", "Date", "Date (E.C.)", "Category/Source", "Amount", "Notes"].join(",")];
+    income.forEach((i) => rows.push(["Income", i.date, formatGregorianToEthiopian(i.date), i.source, String(i.amount), `"${i.notes || ""}"`].join(",")));
+    expenses.forEach((e) => rows.push(["Expense", e.date, formatGregorianToEthiopian(e.date), e.category, String(e.amount), `"${e.notes || ""}"`].join(",")));
     const blob = new Blob([rows.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -56,15 +48,17 @@ export default function Reports() {
     a.click();
   };
 
+  const currentLabel = monthOptions.find(o => o.value === month)?.label || month;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Reports</h2>
         <div className="flex gap-2">
           <Select value={month} onValueChange={setMonth}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {months.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+              {monthOptions.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={exportCSV}><Download className="mr-2 h-4 w-4" />Export CSV</Button>
@@ -77,7 +71,6 @@ export default function Reports() {
         <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Net</p><p className={`text-xl font-bold ${totalIncome - totalExpenses >= 0 ? "text-success" : "text-destructive"}`}>{formatETB(totalIncome - totalExpenses)}</p></CardContent></Card>
       </div>
 
-      {/* Loan Repayments Summary */}
       {loanRepaymentTotal > 0 && (
         <Card>
           <CardContent className="p-4">
@@ -101,7 +94,6 @@ export default function Reports() {
         </CardContent>
       </Card>
 
-      {/* Net Liability vs Assets */}
       {(totalLiability > 0 || totalAssets > 0) && (
         <Card>
           <CardHeader><CardTitle className="text-base">Net Liability vs Assets</CardTitle></CardHeader>

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useIncome, useExpenses, getCurrentMonth } from "@/hooks/useFinanceData";
 import { useUpcomingRecurringForMonth } from "@/hooks/useRecurringData";
 import { formatETB } from "@/lib/format";
+import { getCurrentEthiopianMonth, getEthiopianMonthName, getEthiopianDaysInMonth } from "@/lib/ethiopian-calendar";
 import { Target, TrendingDown, TrendingUp, Wallet, CalendarDays, RefreshCw } from "lucide-react";
 
 export default function Forecasting() {
@@ -14,9 +15,9 @@ export default function Forecasting() {
   const totalIncome = useMemo(() => income.reduce((s, i) => s + Number(i.amount), 0), [income]);
   const totalExpenses = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
 
-  const now = new Date();
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const eth = getCurrentEthiopianMonth();
+  const dayOfMonth = eth.day;
+  const daysInMonth = getEthiopianDaysInMonth(eth.month, eth.year);
   const daysRemaining = daysInMonth - dayOfMonth;
 
   const dailyRate = dayOfMonth > 0 ? totalExpenses / dayOfMonth : 0;
@@ -24,9 +25,14 @@ export default function Forecasting() {
   const adjustedProjectedBalance = (totalIncome + upcomingIncome) - (projectedTotal + upcomingExpenses);
   const safeToSpend = daysRemaining > 0 ? Math.max(0, (totalIncome - totalExpenses) / daysRemaining) : 0;
 
+  const ethMonthLabel = `${getEthiopianMonthName(eth.month)} ${eth.year}`;
+
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Forecasting</h2>
+      <div>
+        <h2 className="text-2xl font-bold">Forecasting</h2>
+        <p className="text-sm text-muted-foreground">{ethMonthLabel}</p>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <ForecastCard title="Projected Monthly Expense" value={formatETB(projectedTotal)} subtitle={`Based on ${formatETB(dailyRate)}/day average`} icon={<TrendingDown className="h-5 w-5 text-destructive" />} />
@@ -35,7 +41,6 @@ export default function Forecasting() {
         <ForecastCard title="Current Balance" value={formatETB(totalIncome - totalExpenses)} subtitle={`Day ${dayOfMonth} of ${daysInMonth}`} icon={<CalendarDays className="h-5 w-5 text-muted-foreground" />} />
       </div>
 
-      {/* Recurring forecast cards */}
       <div className="grid gap-4 sm:grid-cols-2">
         <ForecastCard title="Upcoming Recurring Income" value={formatETB(upcomingIncome)} subtitle="Remaining this month" icon={<TrendingUp className="h-5 w-5 text-success" />} />
         <ForecastCard title="Upcoming Recurring Expenses" value={formatETB(upcomingExpenses)} subtitle="Remaining this month" icon={<RefreshCw className="h-5 w-5 text-destructive" />} />

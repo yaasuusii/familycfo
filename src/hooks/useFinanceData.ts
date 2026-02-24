@@ -1,19 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getCurrentEthMonth, parseEthMonth, getEthiopianMonthDateRange } from "@/lib/ethiopian-calendar";
 
-function getMonthEndDate(month: string): string {
-  const [year, mon] = month.split("-").map(Number);
-  const lastDay = new Date(year, mon, 0).getDate();
-  return `${month}-${String(lastDay).padStart(2, "0")}`;
-}
-
-export function useIncome(month?: string) {
+export function useIncome(ethMonth?: string) {
   return useQuery({
-    queryKey: ["income", month],
+    queryKey: ["income", ethMonth],
     queryFn: async () => {
       let query = supabase.from("income").select("*").order("date", { ascending: false });
-      if (month) {
-        query = query.gte("date", `${month}-01`).lte("date", getMonthEndDate(month));
+      if (ethMonth) {
+        const { year, month } = parseEthMonth(ethMonth);
+        const { start, end } = getEthiopianMonthDateRange(year, month);
+        query = query.gte("date", start).lte("date", end);
       }
       const { data, error } = await query;
       if (error) throw error;
@@ -22,13 +19,15 @@ export function useIncome(month?: string) {
   });
 }
 
-export function useExpenses(month?: string) {
+export function useExpenses(ethMonth?: string) {
   return useQuery({
-    queryKey: ["expenses", month],
+    queryKey: ["expenses", ethMonth],
     queryFn: async () => {
       let query = supabase.from("expenses").select("*").order("date", { ascending: false });
-      if (month) {
-        query = query.gte("date", `${month}-01`).lte("date", getMonthEndDate(month));
+      if (ethMonth) {
+        const { year, month } = parseEthMonth(ethMonth);
+        const { start, end } = getEthiopianMonthDateRange(year, month);
+        query = query.gte("date", start).lte("date", end);
       }
       const { data, error } = await query;
       if (error) throw error;
@@ -48,10 +47,10 @@ export function useCategories() {
   });
 }
 
-export function useBudgets(month?: number, year?: number) {
-  const now = new Date();
-  const m = month ?? now.getMonth() + 1;
-  const y = year ?? now.getFullYear();
+export function useBudgets(ethMonth?: number, ethYear?: number) {
+  const { year: cy, month: cm } = parseEthMonth(getCurrentEthMonth());
+  const m = ethMonth ?? cm;
+  const y = ethYear ?? cy;
   return useQuery({
     queryKey: ["budgets", m, y],
     queryFn: async () => {
@@ -78,6 +77,5 @@ export function useProfiles() {
 }
 
 export function getCurrentMonth(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  return getCurrentEthMonth();
 }
