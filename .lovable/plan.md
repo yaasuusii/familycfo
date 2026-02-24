@@ -1,119 +1,113 @@
 
 
-## Recurring Transactions Engine
+## Ethiopian Calendar Integration
 
 ### Overview
-Add two new database tables (`recurring_income` and `recurring_expenses`), a backend function to auto-generate entries on schedule, a management page, an upcoming payments dashboard widget, and forecast integration.
+Add full Ethiopian calendar support throughout the app: display dates in Ethiopian format (e.g., "16 Yekatit 2018") and shift financial month boundaries so each month runs from the 7th of one Gregorian month to the 6th of the next, aligning with Ethiopian calendar months.
 
 ---
 
-### 1. Database Migration
+### 1. New Utility: `src/lib/ethiopian-calendar.ts`
 
-**Table: `recurring_income`**
+Create a pure-TypeScript Ethiopian calendar conversion library with:
 
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid PK | default gen_random_uuid() |
-| title | text NOT NULL | e.g. "Salary", "Business profit" |
-| amount | numeric NOT NULL | ETB |
-| frequency | text NOT NULL | 'monthly', 'weekly', 'yearly' |
-| start_date | date NOT NULL | |
-| end_date | date | nullable |
-| auto_post | boolean NOT NULL | default true |
-| is_active | boolean NOT NULL | default true (for pause/resume) |
-| last_generated_date | date | tracks last auto-generated date to prevent duplicates |
-| created_by | uuid NOT NULL | references auth.users |
-| created_at | timestamptz | default now() |
+- **`toEthiopian(gregorianDate: Date)`** -- converts a Gregorian date to `{ year, month, day }` in the Ethiopian calendar using the standard JDN (Julian Day Number) algorithm
+- **`toGregorian(ethYear, ethMonth, ethDay)`** -- converts back
+- **`formatEthiopianDate(date: Date)`** -- returns string like "16 Yekatit 2018"
+- **`getEthiopianMonthName(month: number)`** -- returns month name (Meskerem, Tikimt, Hidar, Tahsas, Tir, Yekatit, Megabit, Miyazia, Ginbot, Sene, Hamle, Nehase, Pagume)
+- **`getCurrentEthiopianMonth()`** -- returns the current Ethiopian month/year
+- **`getEthiopianMonthDateRange(ethYear, ethMonth)`** -- returns the Gregorian start and end dates for querying the database
 
-**Table: `recurring_expenses`**
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | uuid PK | default gen_random_uuid() |
-| title | text NOT NULL | e.g. "Rent", "Internet" |
-| category | text NOT NULL | linked to categories |
-| amount | numeric NOT NULL | ETB |
-| frequency | text NOT NULL | 'monthly', 'weekly', 'yearly' |
-| start_date | date NOT NULL | |
-| end_date | date | nullable |
-| auto_post | boolean NOT NULL | default true |
-| is_active | boolean NOT NULL | default true |
-| last_generated_date | date | |
-| created_by | uuid NOT NULL | |
-| created_at | timestamptz | default now() |
-
-**RLS Policies (both tables):**
-- SELECT: all authenticated users
-- INSERT/UPDATE/DELETE: admin only (via `has_role`)
-
-**Additional columns on existing tables:**
-- Add `is_auto_generated` (boolean, default false) to both `income` and `expenses` tables so auto-generated entries can be identified and are editable after creation.
-- Add `recurring_id` (uuid, nullable) to both `income` and `expenses` to link back to the recurring rule that created them.
+No external dependencies needed -- the conversion algorithm is straightforward math.
 
 ---
 
-### 2. Edge Function: `process-recurring`
+### 2. Update `src/hooks/useFinanceData.ts`
 
-A backend function that checks all active recurring rules and generates entries when due. Logic:
-
-1. For each active recurring_income/recurring_expense where `auto_post = true`:
-   - Calculate the next due date based on `frequency` and `last_generated_date` (or `start_date` if never generated)
-   - If due date is today or in the past (and not past `end_date`), insert the corresponding `income` or `expenses` row with `is_auto_generated = true` and `recurring_id` set
-   - Update `last_generated_date` on the recurring rule
-   - If multiple periods were missed, generate entries for each missed period (catch-up)
-
-2. This function will be invoked via a scheduled cron job (pg_cron) running daily.
+- **`getCurrentMonth()`** -- change to return an Ethiopian month identifier instead of `"YYYY-MM"`, or keep a compatible format that maps to Gregorian date ranges using the 7th boundary
+- **`useIncome(month)` and `useExpenses(month)`** -- update the date range filtering to use Ethiopian month boundaries (e.g., Feb 7 to Mar 6 instead of Feb 1 to Feb 28)
+- **`useBudgets()`** -- update month/year to use Ethiopian month numbers
 
 ---
 
-### 3. New Page: `src/pages/RecurringTransactions.tsx`
+### 3. Update Date Display Across All Pages
 
-**Two tabs:** "Recurring Income" and "Recurring Expenses"
-
-Each tab shows a table with:
-- Title, amount (ETB), frequency, next due date, status (Active/Paused)
-- Actions (admin only): Edit, Pause/Resume, Delete
-- "Add Recurring" button (admin only) opens a dialog form
-
-**View History** button per item shows all generated entries from that recurring rule (filtered by `recurring_id`).
-
----
-
-### 4. Dashboard: Upcoming Payments Widget
-
-New card on the Dashboard showing transactions due in the next 7 days:
-- Lists upcoming recurring expenses (and income) with title, amount, due date
-- Overdue items (due date passed but not yet generated) highlighted in red
-- Sorted by due date ascending
+**Files affected:**
+- `src/pages/Expenses.tsx` -- show Ethiopian date in table cells (e.g., "16 Yekatit 2018") alongside or instead of Gregorian
+- `src/pages/Income.tsx` -- same
+- `src/pages/Dashboard.tsx` -- update "Day X of Y" to reflect Ethiopian month progress; dates in upcoming widget
+- `src/pages/Reports.tsx` -- month selector shows Ethiopian month names; date displays in tables
+- `src/pages/Budgets.tsx` -- month selector shows Ethiopian month names (Meskerem through Pagume)
+- `src/pages/Forecasting.tsx` -- update day-of-month and days-remaining calculations to use Ethiopian month boundaries
+- `src/pages/GroceryTracker.tsx` -- date labels in charts
+- `src/pages/RecurringTransactions.tsx` -- next due date display
 
 ---
 
-### 5. Forecast Integration (`src/pages/Forecasting.tsx`)
+### 4. Update Month Selectors
 
-Update the forecasting calculations to include:
-- Sum of upcoming recurring expenses for the remainder of the month
-- Sum of upcoming recurring income for the remainder of the month
-- New cards: "Upcoming Recurring Expenses" and "Upcoming Recurring Income"
-- Adjust projected end-of-month balance to factor in known recurring transactions not yet posted
+Replace Gregorian month names (Jan, Feb, ...) with Ethiopian month names (Meskerem, Tikimt, ...) in:
+- Budgets page month picker
+- Reports page month picker
 
----
-
-### 6. New Data Hook: `src/hooks/useRecurringData.ts`
-
-- `useRecurringIncome()` -- fetch all recurring income rules
-- `useRecurringExpenses()` -- fetch all recurring expense rules
-- `useCreateRecurringIncome()` -- mutation
-- `useCreateRecurringExpense()` -- mutation
-- `useUpdateRecurring(table)` -- mutation for edit/pause
-- `useDeleteRecurring(table)` -- mutation
-- `useUpcomingRecurring()` -- computed: calculates next due dates for all active rules and returns items due within 7 days
+Year selector will show Ethiopian years (e.g., 2018 instead of 2026).
 
 ---
 
-### 7. Navigation and Routing
+### 5. Update Forecasting Calculations
 
-- Add "Recurring" nav item to sidebar with `RefreshCw` icon, pointing to `/recurring`
-- Add route `/recurring` to `src/App.tsx`
+In `src/pages/Forecasting.tsx`:
+- `dayOfMonth` and `daysInMonth` recalculated based on Ethiopian month (30 days for months 1-12, 5-6 for Pagume)
+- Daily spending rate and projections use the shifted boundaries
+- "Month progress" bar reflects Ethiopian month progress
+
+---
+
+### 6. Update Recurring Data Hook
+
+In `src/hooks/useRecurringData.ts`:
+- `useUpcomingRecurringForMonth()` -- use Ethiopian month end date instead of Gregorian month end
+
+---
+
+### 7. Date Input Handling
+
+Date inputs (`<input type="date">`) will remain Gregorian (browser native), but:
+- Display a helper text showing the Ethiopian equivalent below date inputs
+- Store dates in the database as Gregorian (no schema changes needed)
+- Convert to Ethiopian only for display purposes
+
+---
+
+### Technical Details
+
+**Ethiopian Calendar Conversion Algorithm:**
+
+The conversion uses the Julian Day Number as an intermediary:
+1. Gregorian date -> JDN -> Ethiopian date
+2. Ethiopian calendar has 13 months: 12 months of 30 days + Pagume (5 or 6 days)
+3. Ethiopian New Year (Meskerem 1) falls on September 11 (or 12 in leap years)
+4. Current Gregorian date Feb 23, 2026 = approximately Yekatit 16, 2018 in Ethiopian calendar
+
+**Month Boundary Mapping (approximate):**
+
+| Ethiopian Month | Gregorian Range |
+|----------------|-----------------|
+| Meskerem | Sep 11 - Oct 10 |
+| Tikimt | Oct 11 - Nov 9 |
+| Hidar | Nov 10 - Dec 9 |
+| Tahsas | Dec 10 - Jan 8 |
+| Tir | Jan 9 - Feb 7 |
+| Yekatit | Feb 8 - Mar 9 |
+| Megabit | Mar 10 - Apr 8 |
+| Miyazia | Apr 9 - May 8 |
+| Ginbot | May 9 - Jun 7 |
+| Sene | Jun 8 - Jul 7 |
+| Hamle | Jul 8 - Aug 6 |
+| Nehase | Aug 7 - Sep 5 |
+| Pagume | Sep 6 - Sep 10 |
+
+**No database changes needed** -- dates remain stored as Gregorian. All conversion happens at the display and query layer.
 
 ---
 
@@ -121,21 +115,16 @@ Update the forecasting calculations to include:
 
 | File | Action |
 |------|--------|
-| Database migration | Create `recurring_income` and `recurring_expenses` tables; add `is_auto_generated` and `recurring_id` to `income` and `expenses` |
-| `supabase/functions/process-recurring/index.ts` | **New** -- edge function for auto-generating entries |
-| `src/hooks/useRecurringData.ts` | **New** -- hooks for recurring CRUD and upcoming calculations |
-| `src/pages/RecurringTransactions.tsx` | **New** -- management page |
-| `src/pages/Dashboard.tsx` | Add Upcoming Payments widget |
-| `src/pages/Forecasting.tsx` | Include recurring data in projections |
-| `src/components/AppSidebar.tsx` | Add Recurring nav item |
-| `src/App.tsx` | Add /recurring route |
-| `src/integrations/supabase/types.ts` | Auto-updated after migration |
+| `src/lib/ethiopian-calendar.ts` | **New** -- conversion utilities |
+| `src/hooks/useFinanceData.ts` | Update month boundaries and getCurrentMonth |
+| `src/hooks/useRecurringData.ts` | Update month-end calculations |
+| `src/pages/Dashboard.tsx` | Ethiopian date display |
+| `src/pages/Expenses.tsx` | Ethiopian date in table |
+| `src/pages/Income.tsx` | Ethiopian date in table |
+| `src/pages/Reports.tsx` | Ethiopian month selector |
+| `src/pages/Budgets.tsx` | Ethiopian month selector |
+| `src/pages/Forecasting.tsx` | Ethiopian month calculations |
+| `src/pages/GroceryTracker.tsx` | Ethiopian dates in chart |
+| `src/pages/RecurringTransactions.tsx` | Ethiopian date display |
+| `src/lib/format.ts` | Add date formatting helper |
 
-### Technical Notes
-
-- The `last_generated_date` column prevents duplicate generation. The edge function compares this against the current date and frequency to determine if a new entry is needed.
-- The `is_active` boolean enables pause/resume without deleting the rule.
-- `is_auto_generated` on income/expenses marks entries as system-created but still allows manual editing.
-- `recurring_id` links generated entries back to their source rule for history viewing.
-- The cron job runs daily and catches up on any missed periods, so the system is resilient to downtime.
-- The upcoming payments widget calculates due dates client-side from the recurring rules' frequency and last_generated_date, requiring no additional database queries beyond fetching the rules themselves.
