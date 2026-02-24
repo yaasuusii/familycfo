@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo } from "react";
+import { getCurrentEthiopianMonth, getEthiopianDaysInMonth, toGregorian } from "@/lib/ethiopian-calendar";
 
 export function useRecurringIncome() {
   return useQuery({
@@ -170,7 +171,11 @@ export function useUpcomingRecurringForMonth() {
 
   return useMemo(() => {
     const now = new Date();
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    // Use Ethiopian month end instead of Gregorian
+    const eth = getCurrentEthiopianMonth();
+    const daysInMonth = getEthiopianDaysInMonth(eth.month, eth.year);
+    const endOfMonth = toGregorian(eth.year, eth.month, daysInMonth);
+
     let upcomingExpenses = 0;
     let upcomingIncome = 0;
 

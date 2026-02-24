@@ -16,7 +16,7 @@ import {
   useCreateRecurringIncome, useCreateRecurringExpense,
   useUpdateRecurring, useDeleteRecurring,
 } from "@/hooks/useRecurringData";
-import { formatETB } from "@/lib/format";
+import { formatETB, formatGregorianToEthiopian } from "@/lib/format";
 import { Plus, Pause, Play, Trash2, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -91,7 +91,7 @@ export default function RecurringTransactions() {
                       <TableCell className="font-medium">{r.title}</TableCell>
                       <TableCell>{formatETB(Number(r.amount))}</TableCell>
                       <TableCell className="capitalize">{r.frequency}</TableCell>
-                      <TableCell>{getNextDueDate(r)}</TableCell>
+                      <TableCell>{formatGregorianToEthiopian(getNextDueDate(r))}</TableCell>
                       <TableCell><Badge variant={r.is_active ? "default" : "secondary"}>{r.is_active ? "Active" : "Paused"}</Badge></TableCell>
                       {isAdmin && (
                         <TableCell className="flex gap-1">
@@ -150,7 +150,7 @@ export default function RecurringTransactions() {
                       <TableCell>{r.category}</TableCell>
                       <TableCell>{formatETB(Number(r.amount))}</TableCell>
                       <TableCell className="capitalize">{r.frequency}</TableCell>
-                      <TableCell>{getNextDueDate(r)}</TableCell>
+                      <TableCell>{formatGregorianToEthiopian(getNextDueDate(r))}</TableCell>
                       <TableCell><Badge variant={r.is_active ? "default" : "secondary"}>{r.is_active ? "Active" : "Paused"}</Badge></TableCell>
                       {isAdmin && (
                         <TableCell className="flex gap-1">
@@ -204,7 +204,7 @@ function HistoryList({ recurringId, type }: { recurringId: string; type: "income
       {data.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">No entries generated yet</p>}
       {data.map((entry: any) => (
         <div key={entry.id} className="flex justify-between text-sm border-b pb-1">
-          <span>{entry.date}</span>
+          <span>{formatGregorianToEthiopian(entry.date)}</span>
           <span className="font-medium">{formatETB(Number(entry.amount))}</span>
         </div>
       ))}

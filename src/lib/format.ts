@@ -5,3 +5,5 @@ export function formatETB(amount: number): string {
 export function formatPercent(value: number): string {
   return `${value.toFixed(1)}%`;
 }
+
+export { formatEthiopianDate, formatGregorianToEthiopian } from "./ethiopian-calendar";

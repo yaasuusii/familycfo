@@ -6,6 +6,7 @@ import { useIncome, useExpenses, useBudgets, getCurrentMonth } from "@/hooks/use
 import { useLoans } from "@/hooks/useLoanData";
 import { useUpcomingRecurring } from "@/hooks/useRecurringData";
 import { formatETB, formatPercent } from "@/lib/format";
+import { getCurrentEthiopianMonth, getEthiopianMonthName, getEthiopianDaysInMonth, toEthiopian, formatEthiopianDate } from "@/lib/ethiopian-calendar";
 import { TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target, ShieldAlert, AlertTriangle, Landmark, HandCoins, Scale, RefreshCw } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, BarChart, Bar, Legend } from "recharts";
 
@@ -25,13 +26,11 @@ function getStatusBg(pct: number) {
 
 export default function Dashboard() {
   const month = getCurrentMonth();
-  const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
+  const eth = getCurrentEthiopianMonth();
 
   const { data: income = [] } = useIncome(month);
   const { data: expenses = [] } = useExpenses(month);
-  const { data: budgets = [] } = useBudgets(currentMonth, currentYear);
+  const { data: budgets = [] } = useBudgets(eth.month, eth.year);
   const { data: allLoans = [] } = useLoans();
   const upcomingItems = useUpcomingRecurring();
 
@@ -41,6 +40,7 @@ export default function Dashboard() {
   const totalDebt = activeTaken.reduce((s, l) => s + Number(l.remaining_balance), 0);
   const totalReceivable = activeGiven.reduce((s, l) => s + Number(l.remaining_balance), 0);
 
+  const now = new Date();
   const hasOverdueLoan = activeLoans.some((l) => l.end_date && new Date(l.end_date) < now);
   const hasDueSoonLoan = activeLoans.some((l) => {
     if (!l.end_date) return false;
@@ -57,7 +57,6 @@ export default function Dashboard() {
   const loanRepaymentThisMonth = useMemo(() => expenses.filter((e) => e.category === "Loan Repayment").reduce((s, e) => s + Number(e.amount), 0), [expenses]);
   const debtToIncomeRatio = totalIncome > 0 ? (loanRepaymentThisMonth / totalIncome) * 100 : 0;
 
-  // Budget calculations
   const budgetStats = useMemo(() => {
     return budgets.map((b) => {
       const actual = expenses.filter((e) => e.category === b.category).reduce((s, e) => s + Number(e.amount), 0);
@@ -91,14 +90,19 @@ export default function Dashboard() {
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([date, amount]) => ({ date: date.slice(5), amount }));
   }, [expenses]);
 
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const dayOfMonth = eth.day;
+  const daysInMonth = getEthiopianDaysInMonth(eth.month, eth.year);
   const projectedExpenses = dayOfMonth > 0 ? (totalExpenses / dayOfMonth) * daysInMonth : 0;
   const projectedRemaining = totalIncome - projectedExpenses;
 
+  const ethMonthLabel = `${getEthiopianMonthName(eth.month)} ${eth.year}`;
+
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
+      <div>
+        <h2 className="text-2xl font-bold text-foreground">Dashboard</h2>
+        <p className="text-sm text-muted-foreground">{ethMonthLabel} · Day {dayOfMonth} of {daysInMonth}</p>
+      </div>
 
       {/* Alert Banners */}
       {anyExceeded && (
@@ -222,7 +226,7 @@ export default function Dashboard() {
                 </div>
                 <div className="text-right">
                   <span className="font-medium">{formatETB(item.amount)}</span>
-                  <span className="text-muted-foreground ml-2 text-xs">{item.dueDate.toLocaleDateString()}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">{formatEthiopianDate(item.dueDate)}</span>
                 </div>
               </div>
             ))}

@@ -2,8 +2,9 @@ import { useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBudgets, useCategories, useExpenses, getCurrentMonth } from "@/hooks/useFinanceData";
+import { useBudgets, useCategories, useExpenses } from "@/hooks/useFinanceData";
 import { formatETB, formatPercent } from "@/lib/format";
+import { getCurrentEthiopianMonth, getEthiopianMonthName, getEthiopianMonthDateRange } from "@/lib/ethiopian-calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { Plus, Trash2, AlertTriangle, Pencil, ShieldAlert, TrendingUp } from "lucide-react";
 
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const ETH_MONTHS = Array.from({ length: 13 }, (_, i) => ({
+  value: i + 1,
+  label: getEthiopianMonthName(i + 1),
+}));
 
 function getStatus(pct: number) {
   if (pct >= 100) return { label: "Exceeded", color: "text-destructive", bg: "bg-destructive", border: "border-destructive" };
@@ -26,14 +30,14 @@ function getStatus(pct: number) {
 export default function Budgets() {
   const { role } = useAuth();
   const queryClient = useQueryClient();
-  const now = new Date();
-  const [selMonth, setSelMonth] = useState(now.getMonth() + 1);
-  const [selYear, setSelYear] = useState(now.getFullYear());
+  const ethNow = getCurrentEthiopianMonth();
+  const [selMonth, setSelMonth] = useState(ethNow.month);
+  const [selYear, setSelYear] = useState(ethNow.year);
 
-  const expMonth = `${selYear}-${String(selMonth).padStart(2, "0")}`;
+  const ethMonthStr = `${selYear}-${String(selMonth).padStart(2, "0")}`;
   const { data: budgets = [] } = useBudgets(selMonth, selYear);
   const { data: categories = [] } = useCategories();
-  const { data: expenses = [] } = useExpenses(expMonth);
+  const { data: expenses = [] } = useExpenses(ethMonthStr);
 
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -106,7 +110,7 @@ export default function Budgets() {
     setOpen(true);
   };
 
-  const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - 2 + i);
+  const years = Array.from({ length: 5 }, (_, i) => ethNow.year - 2 + i);
 
   return (
     <div className="space-y-6">
@@ -115,9 +119,9 @@ export default function Budgets() {
         <h2 className="text-2xl font-bold text-foreground">Budgets</h2>
         <div className="flex items-center gap-2">
           <Select value={String(selMonth)} onValueChange={(v) => setSelMonth(Number(v))}>
-            <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>)}
+              {ETH_MONTHS.map((m) => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={String(selYear)} onValueChange={(v) => setSelYear(Number(v))}>
@@ -245,7 +249,7 @@ export default function Budgets() {
         ))}
         {budgetStats.length === 0 && (
           <p className="col-span-full text-center text-muted-foreground py-8">
-            No budgets set for {MONTHS[selMonth - 1]} {selYear}. {isAdmin ? "Click 'Set Budget' to get started." : "Ask admin to set budgets."}
+            No budgets set for {getEthiopianMonthName(selMonth)} {selYear}. {isAdmin ? "Click 'Set Budget' to get started." : "Ask admin to set budgets."}
           </p>
         )}
       </div>
