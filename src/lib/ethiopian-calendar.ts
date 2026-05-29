@@ -29,7 +29,7 @@ function jdnToEthiopian(jdn: number): EthiopianDate {
 }
 
 function ethiopianToJDN(year: number, month: number, day: number): number {
-  return 1723856 + 365 * (year - 1) + Math.floor(year / 4) + 30 * (month - 1) + day - 1;
+  return 1724221 + 365 * (year - 1) + Math.floor((year - 1) / 4) + 30 * (month - 1) + day - 1;
 }
 
 export function toEthiopian(date: Date): EthiopianDate {
