@@ -95,8 +95,11 @@ export function useDeleteRecurring(table: "recurring_income" | "recurring_expens
 function addPeriod(date: Date, frequency: string): Date {
   const d = new Date(date);
   if (frequency === "weekly") d.setDate(d.getDate() + 7);
-  else if (frequency === "monthly") d.setMonth(d.getMonth() + 1);
   else if (frequency === "yearly") d.setFullYear(d.getFullYear() + 1);
+  // "monthly" and any unrecognized frequency advance by one month.
+  // This guarantees the date always moves forward, preventing the
+  // `while (next <= endOfMonth)` loops below from never terminating.
+  else d.setMonth(d.getMonth() + 1);
   return d;
 }
 
