@@ -6,7 +6,7 @@ import { useIncome, useExpenses, useBudgets, getCurrentMonth } from "@/hooks/use
 import { useLoans } from "@/hooks/useLoanData";
 import { useUpcomingRecurring } from "@/hooks/useRecurringData";
 import { formatETB, formatPercent } from "@/lib/format";
-import { getCurrentEthiopianMonth, getEthiopianMonthName, getEthiopianDaysInMonth, toEthiopian, formatEthiopianDate } from "@/lib/ethiopian-calendar";
+import { getCurrentEthiopianMonth, getEthiopianMonthName, getEthiopianDaysInMonth, toEthiopian } from "@/lib/ethiopian-calendar";
 import { TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target, ShieldAlert, AlertTriangle, Landmark, HandCoins, Scale, RefreshCw } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, BarChart, Bar, Legend } from "recharts";
 
@@ -226,7 +226,7 @@ export default function Dashboard() {
                 </div>
                 <div className="text-right">
                   <span className="font-medium">{formatETB(item.amount)}</span>
-                  <span className="text-muted-foreground ml-2 text-xs">{formatEthiopianDate(item.dueDate)}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">{item.dueDate.toISOString().slice(0, 10)}</span>
                 </div>
               </div>
             ))}

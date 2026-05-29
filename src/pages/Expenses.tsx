@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useExpenses, useCategories, useProfiles, getCurrentMonth } from "@/hooks/useFinanceData";
-import { formatETB, formatGregorianToEthiopian } from "@/lib/format";
+import { formatETB } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -196,7 +196,7 @@ export default function Expenses() {
             <TableBody>
               {filtered.map((e) => (
                 <TableRow key={e.id}>
-                  <TableCell title={e.date}>{formatGregorianToEthiopian(e.date)}</TableCell>
+                  <TableCell>{e.date}</TableCell>
                   <TableCell>
                     {e.user_id === user?.id ? (
                       <Select value={e.category} onValueChange={(v) => handleCategoryChange(e.id, v)}>

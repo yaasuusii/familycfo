@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIncome, useProfiles, getCurrentMonth } from "@/hooks/useFinanceData";
-import { formatETB, formatGregorianToEthiopian } from "@/lib/format";
+import { formatETB } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,7 +111,7 @@ export default function Income() {
             <TableBody>
               {income.map((i) => (
                 <TableRow key={i.id}>
-                  <TableCell title={i.date}>{formatGregorianToEthiopian(i.date)}</TableCell>
+                  <TableCell>{i.date}</TableCell>
                   <TableCell>{i.source}</TableCell>
                   <TableCell className="font-medium">{formatETB(Number(i.amount))}</TableCell>
                   <TableCell>{getUserName(i.user_id)}</TableCell>
