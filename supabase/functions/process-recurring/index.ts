@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
         category: rule.category,
         amount: rule.amount,
         date: dateStr,
-        payment_method: "Bank",
+        payment_method: "CBE",
         notes: "Auto-generated from recurring rule",
         is_auto_generated: true,
         recurring_id: rule.id,

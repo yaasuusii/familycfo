@@ -15,6 +15,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 
+const PAYMENT_METHODS = ["Cash", "CBE", "BOA", "127"] as const;
+type PaymentMethod = typeof PAYMENT_METHODS[number];
+
+const PAYMENT_BADGE: Record<PaymentMethod, string> = {
+  Cash:  "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+  CBE:   "bg-blue-100   text-blue-800   dark:bg-blue-900/40   dark:text-blue-300",
+  BOA:   "bg-red-100    text-red-800    dark:bg-red-900/40    dark:text-red-300",
+  "127": "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
+};
+
+function PaymentBadge({ method }: { method: string }) {
+  const cls = PAYMENT_BADGE[method as PaymentMethod] ?? "bg-secondary text-foreground";
+  return (
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${cls}`}>
+      {method}
+    </span>
+  );
+}
+
 export default function Expenses() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -25,11 +44,13 @@ export default function Expenses() {
   const [open, setOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterUser, setFilterUser] = useState("all");
-  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "Cash", notes: "" });
+  const [filterPayment, setFilterPayment] = useState("all");
+  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "" });
 
   const filtered = expenses.filter((e) => {
     if (filterCategory !== "all" && e.category !== filterCategory) return false;
     if (filterUser !== "all" && e.user_id !== filterUser) return false;
+    if (filterPayment !== "all" && e.payment_method !== filterPayment) return false;
     return true;
   });
 
@@ -49,7 +70,7 @@ export default function Expenses() {
     if (error) { toast.error(error.message); return; }
     toast.success("Expense added");
     setOpen(false);
-    setForm({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "Cash", notes: "" });
+    setForm({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "" });
     queryClient.invalidateQueries({ queryKey: ["expenses"] });
   };
 
@@ -57,6 +78,13 @@ export default function Expenses() {
     const { error } = await supabase.from("expenses").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     toast.success("Deleted");
+    queryClient.invalidateQueries({ queryKey: ["expenses"] });
+  };
+
+  const handleCategoryChange = async (id: string, category: string) => {
+    const { error } = await supabase.from("expenses").update({ category }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Category updated");
     queryClient.invalidateQueries({ queryKey: ["expenses"] });
   };
 
@@ -94,13 +122,21 @@ export default function Expenses() {
                   <Input type="number" step="0.01" min="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
                 </div>
                 <div className="space-y-2">
-                  <Label>Payment Method</Label>
+                  <Label>Account / Payment</Label>
                   <Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Cash">Cash</SelectItem>
-                      <SelectItem value="Bank">Bank</SelectItem>
-                      <SelectItem value="Telebirr">Telebirr</SelectItem>
+                      {PAYMENT_METHODS.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          <span className="flex items-center gap-2">
+                            <PaymentBadge method={m} />
+                            {m === "CBE" && "Commercial Bank of Ethiopia"}
+                            {m === "BOA" && "Bank of Abyssinia"}
+                            {m === "127" && "Telebirr (127)"}
+                            {m === "Cash" && "Cash"}
+                          </span>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -131,6 +167,15 @@ export default function Expenses() {
             {profiles.map((p) => <SelectItem key={p.user_id} value={p.user_id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={filterPayment} onValueChange={setFilterPayment}>
+          <SelectTrigger className="w-36"><SelectValue placeholder="Account" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Accounts</SelectItem>
+            {PAYMENT_METHODS.map((m) => (
+              <SelectItem key={m} value={m}><PaymentBadge method={m} /></SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <Card>
@@ -142,7 +187,7 @@ export default function Expenses() {
                 <TableHead>Date</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Payment</TableHead>
+                <TableHead>Account</TableHead>
                 <TableHead>Added By</TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead></TableHead>
@@ -152,9 +197,20 @@ export default function Expenses() {
               {filtered.map((e) => (
                 <TableRow key={e.id}>
                   <TableCell title={e.date}>{formatGregorianToEthiopian(e.date)}</TableCell>
-                  <TableCell>{e.category}</TableCell>
+                  <TableCell>
+                    {e.user_id === user?.id ? (
+                      <Select value={e.category} onValueChange={(v) => handleCategoryChange(e.id, v)}>
+                        <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {categories.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      e.category
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">{formatETB(Number(e.amount))}</TableCell>
-                  <TableCell>{e.payment_method}</TableCell>
+                  <TableCell><PaymentBadge method={e.payment_method} /></TableCell>
                   <TableCell>{getUserName(e.user_id)}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{e.notes}</TableCell>
                   <TableCell>
