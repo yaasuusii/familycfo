@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Trash2, Search, SlidersHorizontal, X } from "lucide-react";
+import { Plus, Trash2, X, ListFilter } from "lucide-react";
 
 const PAYMENT_METHODS = ["Cash", "CBE", "BOA", "127"] as const;
 type PaymentMethod = typeof PAYMENT_METHODS[number];
@@ -47,23 +47,20 @@ export default function Expenses() {
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterUser, setFilterUser] = useState("all");
   const [filterPayment, setFilterPayment] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "" });
 
-  const activeFilterCount = [filterCategory, filterUser, filterPayment].filter((f) => f !== "all").length + (searchQuery ? 1 : 0);
+  const activeFilterCount = [filterCategory, filterUser, filterPayment].filter((f) => f !== "all").length;
 
   const clearAllFilters = () => {
     setFilterCategory("all");
     setFilterUser("all");
     setFilterPayment("all");
-    setSearchQuery("");
   };
 
   const filtered = expenses.filter((e) => {
     if (filterCategory !== "all" && e.category !== filterCategory) return false;
     if (filterUser !== "all" && e.user_id !== filterUser) return false;
     if (filterPayment !== "all" && e.payment_method !== filterPayment) return false;
-    if (searchQuery && !(e.notes?.toLowerCase().includes(searchQuery.toLowerCase()) || e.category.toLowerCase().includes(searchQuery.toLowerCase()))) return false;
     return true;
   });
 
@@ -164,120 +161,40 @@ export default function Expenses() {
         </Dialog>
       </div>
 
-      {/* Modern Filter Bar */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          {/* Search */}
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search notes or category..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 h-9"
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Filter Popovers */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5">
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                Filters
-                {activeFilterCount > 0 && (
-                  <Badge variant="default" className="ml-1 h-5 w-5 rounded-full p-0 text-[10px] flex items-center justify-center">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-72 p-4 space-y-4" align="end">
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Category</Label>
-                <Select value={filterCategory} onValueChange={setFilterCategory}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="All Categories" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {categories.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Added By</Label>
-                <Select value={filterUser} onValueChange={setFilterUser}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="All Users" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Users</SelectItem>
-                    {profiles.map((p) => <SelectItem key={p.user_id} value={p.user_id}>{p.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Account</Label>
-                <Select value={filterPayment} onValueChange={setFilterPayment}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="All Accounts" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Accounts</SelectItem>
-                    {PAYMENT_METHODS.map((m) => (
-                      <SelectItem key={m} value={m}><PaymentBadge method={m} /></SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {activeFilterCount > 0 && (
-                <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={clearAllFilters}>
-                  Clear all filters
-                </Button>
-              )}
-            </PopoverContent>
-          </Popover>
+      {/* Active filter chips — only visible when filtering */}
+      {activeFilterCount > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">Filtered by:</span>
+          {filterCategory !== "all" && (
+            <Badge variant="secondary" className="gap-1 pr-1 font-normal">
+              Category: {filterCategory}
+              <button onClick={() => setFilterCategory("all")} className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"><X className="h-3 w-3" /></button>
+            </Badge>
+          )}
+          {filterUser !== "all" && (
+            <Badge variant="secondary" className="gap-1 pr-1 font-normal">
+              User: {getUserName(filterUser)}
+              <button onClick={() => setFilterUser("all")} className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"><X className="h-3 w-3" /></button>
+            </Badge>
+          )}
+          {filterPayment !== "all" && (
+            <Badge variant="secondary" className="gap-1 pr-1 font-normal">
+              Account: <PaymentBadge method={filterPayment} />
+              <button onClick={() => setFilterPayment("all")} className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"><X className="h-3 w-3" /></button>
+            </Badge>
+          )}
+          <button onClick={clearAllFilters} className="text-xs text-muted-foreground hover:text-foreground underline ml-1">Clear all</button>
         </div>
-
-        {/* Active Filter Chips */}
-        {activeFilterCount > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground">Active:</span>
-            {filterCategory !== "all" && (
-              <Badge variant="secondary" className="gap-1 pr-1 font-normal">
-                {filterCategory}
-                <button onClick={() => setFilterCategory("all")} className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"><X className="h-3 w-3" /></button>
-              </Badge>
-            )}
-            {filterUser !== "all" && (
-              <Badge variant="secondary" className="gap-1 pr-1 font-normal">
-                {getUserName(filterUser)}
-                <button onClick={() => setFilterUser("all")} className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"><X className="h-3 w-3" /></button>
-              </Badge>
-            )}
-            {filterPayment !== "all" && (
-              <Badge variant="secondary" className="gap-1 pr-1 font-normal">
-                <PaymentBadge method={filterPayment} />
-                <button onClick={() => setFilterPayment("all")} className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"><X className="h-3 w-3" /></button>
-              </Badge>
-            )}
-            {searchQuery && (
-              <Badge variant="secondary" className="gap-1 pr-1 font-normal">
-                &quot;{searchQuery}&quot;
-                <button onClick={() => setSearchQuery("")} className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"><X className="h-3 w-3" /></button>
-              </Badge>
-            )}
-            <button onClick={clearAllFilters} className="text-xs text-muted-foreground hover:text-foreground underline ml-1">
-              Clear all
-            </button>
-          </div>
-        )}
-      </div>
+      )}
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center justify-between">
             <span>Total: {formatETB(totalFiltered)}</span>
-            <span className="text-sm font-normal text-muted-foreground">{filtered.length} {filtered.length === 1 ? "entry" : "entries"}{activeFilterCount > 0 ? ` (filtered from ${expenses.length})` : ""}</span>
+            <span className="text-sm font-normal text-muted-foreground">
+              {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
+              {activeFilterCount > 0 ? ` (of ${expenses.length})` : ""}
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -285,10 +202,90 @@ export default function Expenses() {
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead>Category</TableHead>
+
+                {/* Category — filterable */}
+                <TableHead>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="inline-flex items-center gap-1 hover:text-foreground transition-colors">
+                        Category
+                        <ListFilter className={`h-3.5 w-3.5 ${filterCategory !== "all" ? "text-primary" : "text-muted-foreground"}`} />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-2" align="start">
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => setFilterCategory("all")}
+                          className={`w-full text-left px-2 py-1.5 text-sm rounded-md hover:bg-accent ${filterCategory === "all" ? "bg-accent font-medium" : ""}`}
+                        >All Categories</button>
+                        {categories.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => setFilterCategory(c.name)}
+                            className={`w-full text-left px-2 py-1.5 text-sm rounded-md hover:bg-accent ${filterCategory === c.name ? "bg-accent font-medium" : ""}`}
+                          >{c.name}</button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </TableHead>
+
                 <TableHead>Amount</TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead>Added By</TableHead>
+
+                {/* Account — filterable */}
+                <TableHead>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="inline-flex items-center gap-1 hover:text-foreground transition-colors">
+                        Account
+                        <ListFilter className={`h-3.5 w-3.5 ${filterPayment !== "all" ? "text-primary" : "text-muted-foreground"}`} />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-44 p-2" align="start">
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => setFilterPayment("all")}
+                          className={`w-full text-left px-2 py-1.5 text-sm rounded-md hover:bg-accent ${filterPayment === "all" ? "bg-accent font-medium" : ""}`}
+                        >All Accounts</button>
+                        {PAYMENT_METHODS.map((m) => (
+                          <button
+                            key={m}
+                            onClick={() => setFilterPayment(m)}
+                            className={`w-full text-left px-2 py-1.5 text-sm rounded-md hover:bg-accent flex items-center gap-2 ${filterPayment === m ? "bg-accent font-medium" : ""}`}
+                          ><PaymentBadge method={m} /></button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </TableHead>
+
+                {/* Added By — filterable */}
+                <TableHead>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="inline-flex items-center gap-1 hover:text-foreground transition-colors">
+                        Added By
+                        <ListFilter className={`h-3.5 w-3.5 ${filterUser !== "all" ? "text-primary" : "text-muted-foreground"}`} />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-44 p-2" align="start">
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => setFilterUser("all")}
+                          className={`w-full text-left px-2 py-1.5 text-sm rounded-md hover:bg-accent ${filterUser === "all" ? "bg-accent font-medium" : ""}`}
+                        >All Users</button>
+                        {profiles.map((p) => (
+                          <button
+                            key={p.user_id}
+                            onClick={() => setFilterUser(p.user_id)}
+                            className={`w-full text-left px-2 py-1.5 text-sm rounded-md hover:bg-accent ${filterUser === p.user_id ? "bg-accent font-medium" : ""}`}
+                          >{p.name}</button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </TableHead>
+
                 <TableHead>Notes</TableHead>
                 <TableHead></TableHead>
               </TableRow>
