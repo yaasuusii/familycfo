@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Trash2, X, ListFilter } from "lucide-react";
+import { Plus, Trash2, X, ListFilter, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 const PAYMENT_METHODS = ["Cash", "CBE", "BOA", "127"] as const;
 type PaymentMethod = typeof PAYMENT_METHODS[number];
@@ -47,6 +47,7 @@ export default function Expenses() {
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterUser, setFilterUser] = useState("all");
   const [filterPayment, setFilterPayment] = useState("all");
+  const [sortAmount, setSortAmount] = useState<"none" | "asc" | "desc">("none");
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "" });
 
   const activeFilterCount = [filterCategory, filterUser, filterPayment].filter((f) => f !== "all").length;
@@ -63,6 +64,10 @@ export default function Expenses() {
     if (filterPayment !== "all" && e.payment_method !== filterPayment) return false;
     return true;
   });
+
+  const sorted = sortAmount === "none" ? filtered : [...filtered].sort((a, b) =>
+    sortAmount === "asc" ? Number(a.amount) - Number(b.amount) : Number(b.amount) - Number(a.amount)
+  );
 
   const totalFiltered = filtered.reduce((s, e) => s + Number(e.amount), 0);
 
@@ -230,7 +235,35 @@ export default function Expenses() {
                   </Popover>
                 </TableHead>
 
-                <TableHead>Amount</TableHead>
+                {/* Amount — sortable */}
+                <TableHead>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="inline-flex items-center gap-1 hover:text-foreground transition-colors">
+                        Amount
+                        {sortAmount === "none" && <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                        {sortAmount === "asc" && <ArrowUp className="h-3.5 w-3.5 text-primary" />}
+                        {sortAmount === "desc" && <ArrowDown className="h-3.5 w-3.5 text-primary" />}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-44 p-2" align="start">
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => setSortAmount("none")}
+                          className={`w-full text-left px-2 py-1.5 text-sm rounded-md hover:bg-accent flex items-center gap-2 ${sortAmount === "none" ? "bg-accent font-medium" : ""}`}
+                        ><ArrowUpDown className="h-3.5 w-3.5" /> Default</button>
+                        <button
+                          onClick={() => setSortAmount("asc")}
+                          className={`w-full text-left px-2 py-1.5 text-sm rounded-md hover:bg-accent flex items-center gap-2 ${sortAmount === "asc" ? "bg-accent font-medium" : ""}`}
+                        ><ArrowUp className="h-3.5 w-3.5" /> Low to High</button>
+                        <button
+                          onClick={() => setSortAmount("desc")}
+                          className={`w-full text-left px-2 py-1.5 text-sm rounded-md hover:bg-accent flex items-center gap-2 ${sortAmount === "desc" ? "bg-accent font-medium" : ""}`}
+                        ><ArrowDown className="h-3.5 w-3.5" /> High to Low</button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </TableHead>
 
                 {/* Account — filterable */}
                 <TableHead>
@@ -291,7 +324,7 @@ export default function Expenses() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((e) => (
+              {sorted.map((e) => (
                 <TableRow key={e.id}>
                   <TableCell>{e.date}</TableCell>
                   <TableCell>
