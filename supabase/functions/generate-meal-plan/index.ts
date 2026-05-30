@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are an Ethiopian meal planning assistant for a pregnant woman. You MUST respond with ONLY valid JSON, no markdown, no explanation." },
+          { role: "system", content: "You are a meal planning assistant for a pregnant Ethiopian woman. Respond with ONLY a valid JSON array. No markdown, no explanation, no text outside the JSON." },
           { role: "user", content: prompt },
         ],
       }),
@@ -63,6 +63,19 @@ Deno.serve(async (req) => {
   }
 });
 
+function getWeekNutritionFocus(week: number): string {
+  if (week <= 4) return "Folate is critical for neural tube development. Easy-to-digest foods, ginger for nausea.";
+  if (week <= 8) return "Continue high folate. Small frequent meals to manage morning sickness. Vitamin B6 foods.";
+  if (week <= 12) return "Iron needs increasing. Citrus with meals to boost iron absorption. Hydration important.";
+  if (week <= 16) return "Baby's bones forming — increase calcium and vitamin D. Appetite may be returning, add more protein.";
+  if (week <= 20) return "Baby growing fast — increase iron and protein. Add omega-3 for brain development. Energy-dense meals.";
+  if (week <= 24) return "Blood volume expanding — iron-rich foods essential. Calcium for strong bones. Fiber to prevent constipation.";
+  if (week <= 28) return "Third trimester approaching — boost protein and omega-3. Smaller meals more frequently. Iron and calcium remain key.";
+  if (week <= 32) return "Baby gaining weight — high protein, healthy fats. Frequent small meals as stomach space reduces. Fiber important.";
+  if (week <= 36) return "Final stretch — easily digestible, nutrient-dense meals. Keep iron and calcium high. Stay hydrated.";
+  return "Preparing for delivery — light but nutritious meals. High energy snacks. Keep protein and iron up.";
+}
+
 function buildPrompt({ trimester, weeksPregnant, budget, previousMeals, cravings }: {
   trimester?: number;
   weeksPregnant?: number;
@@ -70,38 +83,39 @@ function buildPrompt({ trimester, weeksPregnant, budget, previousMeals, cravings
   previousMeals?: string[];
   cravings?: string[];
 }) {
-  const nutrientsList = ["iron", "folate", "calcium", "protein", "fiber", "vitamin_a", "vitamin_c", "omega3"];
-  const mealTypes = ["breakfast", "morning_snack", "lunch", "afternoon_snack", "dinner"];
+  const nutrients = "iron, folate, calcium, protein, fiber, vitamin_a, vitamin_c, omega3";
+  const mealTypes = '["breakfast","morning_snack","lunch","afternoon_snack","dinner"]';
 
-  let context = "Generate a weekly Ethiopian meal plan (7 days, Monday to Sunday).\n\n";
+  let prompt = "Create a 7-day meal plan (Monday-Sunday) for a pregnant woman.\n\n";
 
-  if (trimester) {
-    context += `The woman is in trimester ${trimester} (week ${weeksPregnant || "unknown"}).\n`;
-    if (trimester === 1) context += "Focus on: folate-rich foods, easy-to-digest meals for nausea, small portions.\n";
-    if (trimester === 2) context += "Focus on: iron and calcium-rich foods, increasing portions, energy-dense meals.\n";
-    if (trimester === 3) context += "Focus on: high protein, omega-3, frequent smaller meals, fiber for digestion.\n";
+  if (weeksPregnant) {
+    prompt += `Pregnancy week: ${weeksPregnant} (trimester ${trimester || Math.ceil(weeksPregnant / 13)}).\n`;
+    prompt += `Nutrition focus this week: ${getWeekNutritionFocus(weeksPregnant)}\n\n`;
   }
 
-  if (budget) context += `Weekly grocery budget is approximately ${budget} ETB.\n`;
-  if (previousMeals?.length) context += `Avoid repeating these from last week: ${previousMeals.slice(0, 10).join(", ")}.\n`;
-  if (cravings?.length) context += `Current cravings to include: ${cravings.join(", ")}.\n`;
+  if (budget) prompt += `Weekly budget: ~${budget} ETB.\n`;
+  if (previousMeals?.length) prompt += `Don't repeat these from last week: ${previousMeals.slice(0, 10).join(", ")}.\n`;
+  if (cravings?.length) prompt += `Include cravings: ${cravings.join(", ")}.\n`;
 
-  context += `
-IMPORTANT RULES:
-- Use real Ethiopian dishes: Injera, Shiro, Misir Wot, Doro Wot, Tibs, Kitcha Fitfit, Genfo, Firfir, Chechebsa, Beyaynetu, Gomen, Kik Alicha, Ayib, Fatira, Sambusa, etc.
-- Snacks can be fruits, yogurt, nuts, kollo (roasted barley), bread, avocado, banana, etc.
-- NEVER suggest raw kitfo, alcohol, or high-mercury fish.
-- Each meal should include relevant nutrition tags from: ${nutrientsList.join(", ")}
-- Vary meals across the week — no same main dish two days in a row.
+  prompt += `
+FOOD VARIETY — mix these categories across the week:
+- Ethiopian: Shiro, Misir Wot, Doro Wot, Tibs, Kitcha Fitfit, Genfo, Firfir, Chechebsa, Beyaynetu, Gomen, Kik Alicha, Ayib, Fatira, Sambusa, Kinche, Kategna, Atmit
+- Chicken: grilled chicken, chicken soup, chicken stir-fry, roasted chicken
+- Meat: beef stew, lamb tibs, meatballs, minced meat spaghetti
+- Fish: grilled fish (tilapia, salmon), fish soup, baked fish (low-mercury only)
+- International: pasta, rice dishes, omelets, sandwiches, salads, soup
+- Snacks: fruits, yogurt, nuts, kollo, boiled eggs, avocado, banana, smoothies, toast, granola
 
-Respond with ONLY a JSON array of objects. Each object has:
-- "day": 0-6 (0=Monday, 6=Sunday)
-- "meal_type": one of ${JSON.stringify(mealTypes)}
-- "name": the meal name (short, 2-5 words)
-- "nutrients": array of relevant tags from ${JSON.stringify(nutrientsList)}
-- "estimated_cost": approximate cost in ETB (number)
+SAFETY — NEVER include: raw meat/kitfo, alcohol, high-mercury fish (shark, swordfish, king mackerel), raw eggs, unpasteurized dairy.
 
-Generate exactly 35 meals (5 per day × 7 days). Respond with ONLY the JSON array, nothing else.`;
+Each meal needs nutrition tags from: ${nutrients}
 
-  return context;
+Output format — JSON array of exactly 35 objects:
+{"day":0,"meal_type":"breakfast","name":"Genfo with Butter","nutrients":["iron","calcium"],"estimated_cost":45}
+
+day: 0=Mon to 6=Sun. meal_type: one of ${mealTypes}. name: 2-5 words. nutrients: relevant tags. estimated_cost: ETB number.
+
+ONLY output the JSON array. No other text.`;
+
+  return prompt;
 }
