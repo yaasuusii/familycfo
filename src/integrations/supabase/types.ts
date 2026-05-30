@@ -62,6 +62,51 @@ export type Database = {
         }
         Relationships: []
       }
+      category_rules: {
+        Row: {
+          category: string
+          keyword: string
+        }
+        Insert: {
+          category: string
+          keyword: string
+        }
+        Update: {
+          category?: string
+          keyword?: string
+        }
+        Relationships: []
+      }
+      cravings: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          item: string
+          notes: string | null
+          satisfied: boolean | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          item: string
+          notes?: string | null
+          satisfied?: boolean | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          item?: string
+          notes?: string | null
+          satisfied?: boolean | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       expenses: {
         Row: {
           amount: number
@@ -98,6 +143,27 @@ export type Database = {
           payment_method?: string
           recurring_id?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      food_warnings: {
+        Row: {
+          id: string
+          keyword: string
+          severity: string
+          warning: string
+        }
+        Insert: {
+          id?: string
+          keyword: string
+          severity: string
+          warning: string
+        }
+        Update: {
+          id?: string
+          keyword?: string
+          severity?: string
+          warning?: string
         }
         Relationships: []
       }
@@ -226,6 +292,127 @@ export type Database = {
         }
         Relationships: []
       }
+      meal_nutrition: {
+        Row: {
+          id: string
+          meal_id: string
+          nutrient: string
+        }
+        Insert: {
+          id?: string
+          meal_id: string
+          nutrient: string
+        }
+        Update: {
+          id?: string
+          meal_id?: string
+          nutrient?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_nutrition_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_plans: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          id: string
+          notes: string | null
+          week_start: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          id?: string
+          notes?: string | null
+          week_start: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          notes?: string | null
+          week_start?: string
+        }
+        Relationships: []
+      }
+      meals: {
+        Row: {
+          batch_days: number | null
+          created_at: string | null
+          day_of_week: number
+          estimated_cost: number | null
+          id: string
+          is_batch: boolean | null
+          meal_type: string
+          name: string
+          notes: string | null
+          plan_id: string
+        }
+        Insert: {
+          batch_days?: number | null
+          created_at?: string | null
+          day_of_week: number
+          estimated_cost?: number | null
+          id?: string
+          is_batch?: boolean | null
+          meal_type: string
+          name: string
+          notes?: string | null
+          plan_id: string
+        }
+        Update: {
+          batch_days?: number | null
+          created_at?: string | null
+          day_of_week?: number
+          estimated_cost?: number | null
+          id?: string
+          is_batch?: boolean | null
+          meal_type?: string
+          name?: string
+          notes?: string | null
+          plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meals_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pregnancy_profile: {
+        Row: {
+          created_at: string | null
+          due_date: string
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          due_date: string
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          due_date?: string
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -351,6 +538,33 @@ export type Database = {
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      water_intake: {
+        Row: {
+          date: string
+          glasses: number
+          goal: number
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          date?: string
+          glasses?: number
+          goal?: number
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          date?: string
+          glasses?: number
+          goal?: number
+          id?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
