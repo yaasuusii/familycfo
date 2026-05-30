@@ -12,13 +12,13 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import {
   ChevronLeft, ChevronRight, Plus, Copy, AlertTriangle, Droplets,
-  UtensilsCrossed, Baby,
+  UtensilsCrossed, Baby, Sparkles, Loader2,
 } from "lucide-react";
 import {
   useMealPlan, useMeals, useCreateMealPlan, useUpsertMeal, useDeleteMeal,
   useFoodWarnings, useWaterIntake, useUpsertWater,
   usePregnancyProfile, useUpsertPregnancyProfile,
-  useCopyWeek, getTrimester, getWeekStart,
+  useCopyWeek, useGenerateMealPlan, getTrimester, getWeekStart,
   MEAL_TYPES, DAYS, NUTRIENTS, type MealType, type Nutrient,
 } from "@/hooks/useMealData";
 import { formatETB } from "@/lib/format";
@@ -53,6 +53,7 @@ export default function MealPlanner() {
   const upsertMeal = useUpsertMeal();
   const deleteMeal = useDeleteMeal();
   const copyWeek = useCopyWeek();
+  const generatePlan = useGenerateMealPlan();
   const upsertProfile = useUpsertPregnancyProfile();
 
   const today = new Date().toISOString().slice(0, 10);
@@ -121,6 +122,22 @@ export default function MealPlanner() {
     toast.success("Copied previous week's meals");
   };
 
+  const handleGenerate = async () => {
+    await handleEnsurePlan();
+    const currentPlan = plan ?? (await createPlan.mutateAsync(weekStart));
+    const prevMealNames = meals.map((m: any) => m.name);
+
+    generatePlan.mutate({
+      planId: currentPlan.id,
+      trimester: trimesterInfo?.trimester,
+      weeksPregnant: trimesterInfo?.weeksPregnant,
+      previousMeals: prevMealNames.length > 0 ? prevMealNames : undefined,
+    }, {
+      onSuccess: () => toast.success("Meal plan generated!"),
+      onError: (e) => toast.error(`AI generation failed: ${e.message}`),
+    });
+  };
+
   const waterGlasses = waterData?.glasses ?? 0;
   const waterGoal = waterData?.goal ?? 10;
 
@@ -137,6 +154,19 @@ export default function MealPlanner() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleGenerate}
+            disabled={generatePlan.isPending}
+          >
+            {generatePlan.isPending ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4 mr-1" />
+            )}
+            {generatePlan.isPending ? "Generating..." : "Generate with AI"}
+          </Button>
           <Button variant="outline" size="sm" onClick={handleCopyPrevWeek} disabled={copyWeek.isPending}>
             <Copy className="h-4 w-4 mr-1" />Copy Last Week
           </Button>

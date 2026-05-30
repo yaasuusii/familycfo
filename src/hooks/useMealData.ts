@@ -279,3 +279,65 @@ export function useCopyWeek() {
     },
   });
 }
+
+export function useGenerateMealPlan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      planId,
+      trimester,
+      weeksPregnant,
+      budget,
+      previousMeals,
+      cravings,
+    }: {
+      planId: string;
+      trimester?: number;
+      weeksPregnant?: number;
+      budget?: number;
+      previousMeals?: string[];
+      cravings?: string[];
+    }) => {
+      const { data, error } = await supabase.functions.invoke("generate-meal-plan", {
+        body: { trimester, weeksPregnant, budget, previousMeals, cravings },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+
+      const meals = data.meals as Array<{
+        day: number;
+        meal_type: MealType;
+        name: string;
+        nutrients: Nutrient[];
+        estimated_cost?: number;
+      }>;
+
+      for (const meal of meals) {
+        const { data: saved } = await supabase
+          .from("meals")
+          .upsert({
+            plan_id: planId,
+            day_of_week: meal.day,
+            meal_type: meal.meal_type,
+            name: meal.name,
+            estimated_cost: meal.estimated_cost ?? null,
+          }, { onConflict: "plan_id,day_of_week,meal_type" })
+          .select()
+          .single();
+
+        if (saved && meal.nutrients?.length > 0) {
+          await supabase.from("meal_nutrition").delete().eq("meal_id", saved.id);
+          await supabase.from("meal_nutrition").insert(
+            meal.nutrients.map((n) => ({ meal_id: saved.id, nutrient: n }))
+          );
+        }
+      }
+
+      return planId;
+    },
+    onSuccess: (planId) => {
+      qc.invalidateQueries({ queryKey: ["meals", planId] });
+    },
+  });
+}
