@@ -55,7 +55,7 @@ export function useMeals(planId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("meals")
-        .select("*, meal_nutrition(*)")
+        .select("*, meal_nutrition(*), meal_ingredients(*)")
         .eq("plan_id", planId!)
         .order("day_of_week")
         .order("meal_type");
@@ -311,6 +311,7 @@ export function useGenerateMealPlan() {
         name: string;
         nutrients: Nutrient[];
         estimated_cost?: number;
+        ingredients?: Array<{ name: string; qty: number; unit: string }>;
       }>;
 
       for (const meal of meals) {
@@ -326,11 +327,24 @@ export function useGenerateMealPlan() {
           .select()
           .single();
 
-        if (saved && meal.nutrients?.length > 0) {
-          await supabase.from("meal_nutrition").delete().eq("meal_id", saved.id);
-          await supabase.from("meal_nutrition").insert(
-            meal.nutrients.map((n) => ({ meal_id: saved.id, nutrient: n }))
-          );
+        if (saved) {
+          if (meal.nutrients?.length > 0) {
+            await supabase.from("meal_nutrition").delete().eq("meal_id", saved.id);
+            await supabase.from("meal_nutrition").insert(
+              meal.nutrients.map((n) => ({ meal_id: saved.id, nutrient: n }))
+            );
+          }
+          if (meal.ingredients?.length > 0) {
+            await supabase.from("meal_ingredients").delete().eq("meal_id", saved.id);
+            await supabase.from("meal_ingredients").insert(
+              meal.ingredients.map((ing) => ({
+                meal_id: saved.id,
+                name: ing.name,
+                quantity: ing.qty,
+                unit: ing.unit,
+              }))
+            );
+          }
         }
       }
 

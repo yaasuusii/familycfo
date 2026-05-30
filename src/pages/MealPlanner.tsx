@@ -10,9 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   ChevronLeft, ChevronRight, Plus, Copy, AlertTriangle, Droplets,
-  UtensilsCrossed, Baby, Sparkles, Loader2,
+  UtensilsCrossed, Baby, Sparkles, Loader2, ShoppingCart,
 } from "lucide-react";
 import {
   useMealPlan, useMeals, useCreateMealPlan, useUpsertMeal, useDeleteMeal,
@@ -141,6 +143,30 @@ export default function MealPlanner() {
   const waterGlasses = waterData?.glasses ?? 0;
   const waterGoal = waterData?.goal ?? 10;
 
+  const groceryList = useMemo(() => {
+    const map = new Map<string, { name: string; qty: number; unit: string; mealCount: number }>();
+    meals.forEach((m: any) => {
+      m.meal_ingredients?.forEach((ing: any) => {
+        const key = `${ing.name.toLowerCase()}_${(ing.unit || "").toLowerCase()}`;
+        const existing = map.get(key);
+        if (existing) {
+          existing.qty += Number(ing.quantity || 0);
+          existing.mealCount += 1;
+        } else {
+          map.set(key, {
+            name: ing.name,
+            qty: Number(ing.quantity || 0),
+            unit: ing.unit || "",
+            mealCount: 1,
+          });
+        }
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [meals]);
+
+  const totalEstimatedCost = meals.reduce((s: number, m: any) => s + Number(m.estimated_cost || 0), 0);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -239,53 +265,116 @@ export default function MealPlanner() {
         ))}
       </div>
 
-      {/* Weekly Grid */}
-      <div className="grid grid-cols-7 gap-2">
-        {/* Day headers */}
-        {DAYS.map((day, i) => {
-          const d = new Date(weekStart);
-          d.setDate(d.getDate() + i);
-          const isToday = d.toISOString().slice(0, 10) === today;
-          return (
-            <div key={day} className={`text-center text-sm font-semibold py-1.5 rounded-t-md ${isToday ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-              {day}
-              <div className="text-[10px] font-normal opacity-75">{d.toISOString().slice(5, 10)}</div>
-            </div>
-          );
-        })}
+      {/* Tabs: Meal Plan / Grocery List */}
+      <Tabs defaultValue="meal-plan">
+        <TabsList>
+          <TabsTrigger value="meal-plan" className="gap-1.5">
+            <UtensilsCrossed className="h-3.5 w-3.5" /> Meal Plan
+          </TabsTrigger>
+          <TabsTrigger value="grocery" className="gap-1.5">
+            <ShoppingCart className="h-3.5 w-3.5" /> Grocery List
+            {groceryList.length > 0 && (
+              <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">{groceryList.length}</Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Meal slots */}
-        {MEAL_TYPES.map((slot) => (
-          DAYS.map((_, dayIdx) => {
-            const meal = getMeal(dayIdx, slot.key);
-            const mealWarnings = meal ? matchWarnings(meal.name) : [];
-            return (
-              <button
-                key={`${dayIdx}-${slot.key}`}
-                onClick={async () => {
-                  await handleEnsurePlan();
-                  setEditingSlot({ day: dayIdx, type: slot.key });
-                }}
-                className={`border-l-4 ${MEAL_SLOT_COLORS[slot.key]} min-h-[60px] rounded-md border bg-card p-1.5 text-left hover:bg-accent/50 transition-colors relative`}
-              >
-                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{slot.short}</div>
-                {meal ? (
-                  <>
-                    <div className="text-xs font-medium truncate mt-0.5">{meal.name}</div>
-                    {meal.is_batch && <Badge variant="outline" className="text-[9px] px-1 py-0 mt-0.5">Batch</Badge>}
-                    {meal.estimated_cost && <div className="text-[10px] text-muted-foreground">{formatETB(Number(meal.estimated_cost))}</div>}
-                    {mealWarnings.length > 0 && (
-                      <AlertTriangle className="h-3 w-3 text-destructive absolute top-1.5 right-1.5" />
+        <TabsContent value="meal-plan" className="mt-4">
+          <div className="grid grid-cols-7 gap-2">
+            {/* Day headers */}
+            {DAYS.map((day, i) => {
+              const d = new Date(weekStart);
+              d.setDate(d.getDate() + i);
+              const isToday = d.toISOString().slice(0, 10) === today;
+              return (
+                <div key={day} className={`text-center text-sm font-semibold py-1.5 rounded-t-md ${isToday ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                  {day}
+                  <div className="text-[10px] font-normal opacity-75">{d.toISOString().slice(5, 10)}</div>
+                </div>
+              );
+            })}
+
+            {/* Meal slots */}
+            {MEAL_TYPES.map((slot) => (
+              DAYS.map((_, dayIdx) => {
+                const meal = getMeal(dayIdx, slot.key);
+                const mealWarnings = meal ? matchWarnings(meal.name) : [];
+                return (
+                  <button
+                    key={`${dayIdx}-${slot.key}`}
+                    onClick={async () => {
+                      await handleEnsurePlan();
+                      setEditingSlot({ day: dayIdx, type: slot.key });
+                    }}
+                    className={`border-l-4 ${MEAL_SLOT_COLORS[slot.key]} min-h-[60px] rounded-md border bg-card p-1.5 text-left hover:bg-accent/50 transition-colors relative`}
+                  >
+                    <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{slot.short}</div>
+                    {meal ? (
+                      <>
+                        <div className="text-xs font-medium truncate mt-0.5">{meal.name}</div>
+                        {meal.is_batch && <Badge variant="outline" className="text-[9px] px-1 py-0 mt-0.5">Batch</Badge>}
+                        {meal.estimated_cost && <div className="text-[10px] text-muted-foreground">{formatETB(Number(meal.estimated_cost))}</div>}
+                        {mealWarnings.length > 0 && (
+                          <AlertTriangle className="h-3 w-3 text-destructive absolute top-1.5 right-1.5" />
+                        )}
+                      </>
+                    ) : (
+                      <Plus className="h-3 w-3 text-muted-foreground mt-1 mx-auto" />
                     )}
-                  </>
-                ) : (
-                  <Plus className="h-3 w-3 text-muted-foreground mt-1 mx-auto" />
-                )}
-              </button>
-            );
-          })
-        ))}
-      </div>
+                  </button>
+                );
+              })
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="grocery" className="mt-4">
+          {groceryList.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <ShoppingCart className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p className="font-medium">No ingredients yet</p>
+                <p className="text-sm mt-1">Generate a meal plan with AI to automatically populate the grocery list.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Weekly Grocery List</CardTitle>
+                  {totalEstimatedCost > 0 && (
+                    <Badge variant="outline" className="text-sm">
+                      Est. Total: {formatETB(totalEstimatedCost)}
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Ingredient</TableHead>
+                      <TableHead className="text-right w-[100px]">Quantity</TableHead>
+                      <TableHead className="w-[80px]">Unit</TableHead>
+                      <TableHead className="text-right w-[80px]">Meals</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {groceryList.map((item, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-medium capitalize">{item.name}</TableCell>
+                        <TableCell className="text-right">{item.qty % 1 === 0 ? item.qty : item.qty.toFixed(2)}</TableCell>
+                        <TableCell className="text-muted-foreground">{item.unit}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{item.mealCount}x</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Edit Meal Dialog */}
       {editingSlot && plan && (
@@ -449,6 +538,24 @@ function MealDialog({
               ))}
             </div>
           </div>
+
+          {/* Ingredients (from AI) */}
+          {existing?.meal_ingredients?.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wider">Ingredients</Label>
+              <div className="rounded-md border divide-y text-sm max-h-40 overflow-y-auto">
+                {existing.meal_ingredients.map((ing: any) => (
+                  <div key={ing.id} className="flex items-center justify-between px-3 py-1.5">
+                    <span className="capitalize">{ing.name}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {ing.quantity && (Number(ing.quantity) % 1 === 0 ? Number(ing.quantity) : Number(ing.quantity).toFixed(2))}{" "}
+                      {ing.unit}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-2 pt-2">
             <Button className="flex-1" onClick={handleSave} disabled={onSave.isPending}>Save</Button>

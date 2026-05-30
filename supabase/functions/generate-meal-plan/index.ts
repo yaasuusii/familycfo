@@ -111,9 +111,10 @@ SAFETY — NEVER include: raw meat/kitfo, alcohol, high-mercury fish (shark, swo
 Each meal needs nutrition tags from: ${nutrients}
 
 Output format — JSON array of exactly 35 objects:
-{"day":0,"meal_type":"breakfast","name":"Genfo with Butter","nutrients":["iron","calcium"],"estimated_cost":45}
+{"day":0,"meal_type":"breakfast","name":"Genfo with Butter","nutrients":["iron","calcium"],"estimated_cost":45,"ingredients":[{"name":"barley flour","qty":0.25,"unit":"kg"},{"name":"butter","qty":50,"unit":"g"},{"name":"berbere","qty":1,"unit":"tbsp"}]}
 
-day: 0=Mon to 6=Sun. meal_type: one of ${mealTypes}. name: 2-5 words. nutrients: relevant tags. estimated_cost: ETB number.
+day: 0=Mon to 6=Sun. meal_type: one of ${mealTypes}. name: 2-5 words. nutrients: relevant tags. estimated_cost: ETB total for the meal.
+ingredients: array of {"name","qty","unit"} — list the key ingredients with realistic quantities. Units: kg, g, pcs, cup, tbsp, tsp, ml, L.
 
 ONLY output the JSON array. No other text.`;
 
