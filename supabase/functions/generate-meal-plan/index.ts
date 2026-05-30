@@ -1,11 +1,16 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_MODELS = [
+  "openrouter/free",
+  "openrouter/owl-alpha",
+  "deepseek/deepseek-v4-flash:free",
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "openai/gpt-oss-20b:free",
+];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -24,33 +29,14 @@ Deno.serve(async (req) => {
 
     const prompt = buildPrompt({ trimester, weeksPregnant, budget, previousMeals, cravings });
 
-    const response = await fetch(OPENROUTER_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${openrouterKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://familycfo.lovable.app",
-        "X-Title": "Family CFO Meal Planner",
-      },
-      body: JSON.stringify({
-        model: "openrouter/owl-alpha",
-        messages: [
-          { role: "system", content: "You are an Ethiopian meal planning assistant for a pregnant woman. You MUST respond with ONLY valid JSON, no markdown, no explanation." },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.8,
-        max_tokens: 4000,
-      }),
-    });
+    const { data, error } = await generateWithFallback(openrouterKey, prompt);
 
-    if (!response.ok) {
-      const err = await response.text();
-      return new Response(JSON.stringify({ error: `OpenRouter error: ${err}` }), {
+    if (error) {
+      return new Response(JSON.stringify({ error }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const data = await response.json();
     const content = data.choices?.[0]?.message?.content ?? "";
 
     // Extract JSON from response (handle possible markdown wrapping)
@@ -70,6 +56,44 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+async function generateWithFallback(openrouterKey: string, prompt: string) {
+  let lastError = "OpenRouter request failed";
+
+  for (const model of OPENROUTER_MODELS) {
+    const response = await fetch(OPENROUTER_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openrouterKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://familycfo.lovable.app",
+        "X-Title": "Family CFO Meal Planner",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: "You are an Ethiopian meal planning assistant for a pregnant woman. You MUST respond with ONLY valid JSON, no markdown, no explanation." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.8,
+        max_tokens: 4000,
+      }),
+    });
+
+    if (response.ok) {
+      return { data: await response.json(), error: null };
+    }
+
+    const err = await response.text();
+    lastError = `OpenRouter error with ${model}: ${err}`;
+
+    if (response.status !== 404) {
+      break;
+    }
+  }
+
+  return { data: null, error: lastError };
+}
 
 function buildPrompt({ trimester, weeksPregnant, budget, previousMeals, cravings }: {
   trimester?: number;
