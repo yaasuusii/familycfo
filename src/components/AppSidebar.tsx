@@ -10,6 +10,7 @@ import {
   LineChart,
   Landmark,
   RefreshCw,
+  UtensilsCrossed,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,6 +34,7 @@ const navItems = [
   { title: "Income", url: "/income", icon: TrendingUp },
   { title: "Expenses", url: "/expenses", icon: TrendingDown },
   { title: "Grocery Tracker", url: "/grocery", icon: ShoppingCart },
+  { title: "Meal Planner", url: "/meal-planner", icon: UtensilsCrossed },
   { title: "Budgets", url: "/budgets", icon: PiggyBank },
   { title: "Loans", url: "/loans", icon: Landmark },
   { title: "Recurring", url: "/recurring", icon: RefreshCw },

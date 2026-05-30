@@ -16,6 +16,7 @@ import Loans from "@/pages/Loans";
 import LoanDetail from "@/pages/LoanDetail";
 import RecurringTransactions from "@/pages/RecurringTransactions";
 import Reports from "@/pages/Reports";
+import MealPlanner from "@/pages/MealPlanner";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
 
@@ -60,6 +61,7 @@ const App = () => (
               <Route path="/income" element={<Income />} />
               <Route path="/expenses" element={<Expenses />} />
               <Route path="/grocery" element={<GroceryTracker />} />
+              <Route path="/meal-planner" element={<MealPlanner />} />
               <Route path="/budgets" element={<Budgets />} />
               <Route path="/loans" element={<Loans />} />
               <Route path="/loans/:id" element={<LoanDetail />} />
