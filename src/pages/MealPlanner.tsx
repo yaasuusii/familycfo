@@ -60,6 +60,60 @@ function getCategoryEmoji(label: string): string {
   return GROCERY_CATEGORIES.find(c => c.label === label)?.emoji ?? "\u{1F4E6}";
 }
 
+const SHOPPING_GROUPS: { name: string; match: RegExp; exclude: RegExp }[] = [
+  { name: "Beef", match: /\bbeef\b/i, exclude: /broth|stock/i },
+  { name: "Chicken", match: /\bchicken\b/i, exclude: /broth|stock|noodle|soup/i },
+  { name: "Lamb", match: /\blamb\b/i, exclude: /broth|stock/i },
+  { name: "Eggs", match: /\beggs?\b/i, exclude: /noodle|plant/i },
+  { name: "Salmon", match: /\bsalmon\b/i, exclude: /^$/i },
+  { name: "Tilapia", match: /\btilapia\b/i, exclude: /^$/i },
+  { name: "Tuna", match: /\btuna\b/i, exclude: /^$/i },
+  { name: "Onion", match: /\bonions?\b/i, exclude: /powder|ring/i },
+  { name: "Tomato", match: /\btomato(es)?\b/i, exclude: /paste|sauce|puree|ketchup/i },
+  { name: "Garlic", match: /\bgarlic\b/i, exclude: /powder|bread/i },
+  { name: "Carrot", match: /\bcarrots?\b/i, exclude: /cake/i },
+  { name: "Potato", match: /\bpotat(o|oes)\b/i, exclude: /chip|crisp|sweet/i },
+  { name: "Sweet Potato", match: /\bsweet potato(es)?\b/i, exclude: /^$/i },
+  { name: "Bell Pepper", match: /\b(bell )?pepper\b/i, exclude: /black|white|cayenne|chili|spice/i },
+  { name: "Spinach", match: /\bspinach\b/i, exclude: /^$/i },
+  { name: "Lettuce", match: /\blettuce\b/i, exclude: /^$/i },
+  { name: "Cabbage", match: /\bcabbage\b/i, exclude: /^$/i },
+  { name: "Rice", match: /\brice\b/i, exclude: /cake|paper|vinegar|wine/i },
+  { name: "Pasta", match: /\b(pasta|spaghetti|penne|macaroni|fusilli|linguine)\b/i, exclude: /sauce/i },
+  { name: "Butter", match: /\bbutter\b/i, exclude: /peanut|almond|nut/i },
+  { name: "Flour", match: /\bflour\b/i, exclude: /flower/i },
+  { name: "Banana", match: /\bbananas?\b/i, exclude: /^$/i },
+  { name: "Avocado", match: /\bavocados?\b/i, exclude: /^$/i },
+  { name: "Mango", match: /\bmango(es|s)?\b/i, exclude: /chutney/i },
+  { name: "Lemon", match: /\blemons?\b/i, exclude: /grass/i },
+  { name: "Orange", match: /\boranges?\b/i, exclude: /juice/i },
+  { name: "Yogurt", match: /\byogurt\b/i, exclude: /^$/i },
+  { name: "Milk", match: /\bmilk\b/i, exclude: /coconut/i },
+  { name: "Cheese", match: /\bcheese\b/i, exclude: /cake/i },
+];
+
+function getShoppingName(ingredientName: string): string {
+  const name = ingredientName.toLowerCase();
+  for (const group of SHOPPING_GROUPS) {
+    if (group.match.test(name) && !group.exclude.test(name)) return group.name;
+  }
+  return ingredientName;
+}
+
+function normalizeUnit(qty: number, unit: string): { qty: number; unit: string } {
+  const u = unit.toLowerCase().trim();
+  if (u === "kg") return { qty: qty * 1000, unit: "g" };
+  if (u === "l" || u === "liter" || u === "litre") return { qty: qty * 1000, unit: "ml" };
+  if (u === "piece" || u === "pieces" || u === "pc") return { qty, unit: "pcs" };
+  return { qty, unit: u };
+}
+
+function displayUnit(qty: number, unit: string): { qty: number; unit: string } {
+  if (unit === "g" && qty >= 1000) return { qty: +(qty / 1000).toFixed(2), unit: "kg" };
+  if (unit === "ml" && qty >= 1000) return { qty: +(qty / 1000).toFixed(2), unit: "L" };
+  return { qty, unit };
+}
+
 export default function MealPlanner() {
   const [weekOffset, setWeekOffset] = useState(0);
   const weekStart = useMemo(() => {
@@ -197,23 +251,30 @@ export default function MealPlanner() {
     const map = new Map<string, { name: string; qty: number; unit: string; mealCount: number; category: string }>();
     allMeals.forEach((m: any) => {
       m.meal_ingredients?.forEach((ing: any) => {
-        const key = `${ing.name.toLowerCase()}_${(ing.unit || "").toLowerCase()}`;
+        const shoppingName = getShoppingName(ing.name);
+        const norm = normalizeUnit(Number(ing.quantity || 0), ing.unit || "");
+        const key = `${shoppingName.toLowerCase()}_${norm.unit}`;
         const existing = map.get(key);
         if (existing) {
-          existing.qty += Number(ing.quantity || 0);
+          existing.qty += norm.qty;
           existing.mealCount += 1;
         } else {
           map.set(key, {
-            name: ing.name,
-            qty: Number(ing.quantity || 0),
-            unit: ing.unit || "",
+            name: shoppingName,
+            qty: norm.qty,
+            unit: norm.unit,
             mealCount: 1,
-            category: categorizeIngredient(ing.name),
+            category: categorizeIngredient(shoppingName),
           });
         }
       });
     });
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(map.values())
+      .map(item => {
+        const d = displayUnit(item.qty, item.unit);
+        return { ...item, qty: d.qty, unit: d.unit };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [meals, nextMeals, showTwoWeeks]);
 
   const groceryByCategory = useMemo(() => {
