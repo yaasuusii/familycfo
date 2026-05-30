@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are a meal planning assistant for a pregnant Ethiopian woman. Respond with ONLY a valid JSON array. No markdown, no explanation, no text outside the JSON." },
+          { role: "system", content: "You are a meal planning assistant creating a DIVERSE, international weekly menu for a pregnant woman who lives in Ethiopia but wants global variety — chicken, beef, lamb, fish, pasta, rice, eggs, sandwiches, salads, smoothies — NOT an all-Ethiopian menu. Ethiopian dishes are a small minority. Respond with ONLY a valid JSON array. No markdown, no explanation, no text outside the JSON." },
           { role: "user", content: prompt },
         ],
       }),
@@ -98,15 +98,22 @@ function buildPrompt({ trimester, weeksPregnant, budget, previousMeals, cravings
   if (cravings?.length) prompt += `Include cravings: ${cravings.join(", ")}.\n`;
 
   prompt += `
-FOOD VARIETY — mix these categories across the week:
-- Ethiopian: Shiro, Misir Wot, Doro Wot, Tibs, Kitcha Fitfit, Genfo, Firfir, Chechebsa, Beyaynetu, Gomen, Kik Alicha, Ayib, Fatira, Sambusa, Kinche, Kategna, Atmit
+VARIETY IS THE #1 PRIORITY. This must NOT be an all-Ethiopian plan. Rotate widely across these categories so no two days feel the same:
 - Chicken: grilled chicken, chicken soup, chicken stir-fry, roasted chicken
-- Meat: beef stew, lamb tibs, meatballs, minced meat spaghetti
-- Fish: grilled fish (tilapia, salmon), fish soup, baked fish (low-mercury only)
-- International: pasta, rice dishes, omelets, sandwiches, salads, soup
-- Snacks: fruits, yogurt, nuts, kollo, boiled eggs, avocado, banana, smoothies, toast, granola
+- Meat: beef stew, lamb tibs, meatballs, minced-meat spaghetti
+- Fish (LOW-MERCURY ONLY): grilled tilapia, baked salmon, fish soup
+- International: pasta, rice bowls, omelets, sandwiches, big salads, vegetable soup, pancakes, oatmeal
+- Snacks: smoothies, boiled eggs, granola, toast with avocado, fresh fruit, yogurt with honey, nuts, kollo
+- Ethiopian (use SPARINGLY — see hard limits): Shiro, Beyaynetu, Gomen, Kik Alicha, Genfo, Chechebsa, Firfir, Tibs, Sambusa, Fatira, Kinche
 
-SAFETY — NEVER include: raw meat/kitfo, alcohol, high-mercury fish (shark, swordfish, king mackerel), raw eggs, unpasteurized dairy.
+HARD RULES (must all be satisfied):
+1. NEVER repeat the same dish name anywhere in the week — all 35 meals are distinct.
+2. AT MOST 1 Ethiopian "wot/wat" stew in the ENTIRE week (e.g. Doro Wot, Misir Wot, Key Wot). Prefer zero.
+3. AT MOST 3 meals total may be served "with Injera" across the whole week.
+4. Across the 14 lunches + dinners combined, include AT LEAST: 3 chicken dishes, 3 meat dishes (beef/lamb/meatballs/spaghetti), 2 fish dishes, and 3 international dishes. Ethiopian mains must be the minority (3 or fewer of the 14).
+5. Breakfasts and snacks lean international and fresh (omelets, oatmeal, pancakes, smoothies, fruit, yogurt, toast, eggs) — NOT Ethiopian every day.
+
+SAFETY — NEVER include: raw meat/kitfo, alcohol, high-mercury fish (shark, swordfish, king mackerel, tuna steak), raw eggs, unpasteurized dairy.
 
 Each meal needs nutrition tags from: ${nutrients}
 
