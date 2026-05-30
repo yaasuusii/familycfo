@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   ChevronLeft, ChevronRight, Plus, Copy, AlertTriangle, Droplets,
-  UtensilsCrossed, Baby, Sparkles, Loader2, ShoppingCart,
+  UtensilsCrossed, Baby, Sparkles, Loader2, ShoppingCart, Check,
 } from "lucide-react";
 import {
   useMealPlan, useMeals, useCreateMealPlan, useUpsertMeal, useDeleteMeal,
@@ -39,6 +39,27 @@ const MEAL_SLOT_COLORS: Record<MealType, string> = {
   dinner: "border-l-purple-400",
 };
 
+const GROCERY_CATEGORIES = [
+  { label: "Protein", emoji: "\u{1F969}", keywords: ["chicken", "beef", "lamb", "fish", "tilapia", "salmon", "shrimp", "egg", "tuna", "turkey", "meatball", "mince", "ground meat", "steak"] },
+  { label: "Produce", emoji: "\u{1F96C}", keywords: ["onion", "tomato", "garlic", "ginger", "carrot", "potato", "lettuce", "spinach", "kale", "avocado", "lemon", "lime", "orange", "banana", "apple", "mango", "papaya", "watermelon", "pepper", "cucumber", "broccoli", "asparagus", "zucchini", "mushroom", "corn", "cabbage", "celery", "pea", "beetroot", "sweet potato", "berry", "grape", "guava", "pineapple", "strawberry", "date", "fig"] },
+  { label: "Dairy", emoji: "\u{1F9C0}", keywords: ["milk", "cheese", "yogurt", "butter", "cream", "ayib", "curd", "sour cream"] },
+  { label: "Grains & Bread", emoji: "\u{1F33E}", keywords: ["bread", "injera", "pasta", "rice", "flour", "oat", "barley", "teff", "wheat", "tortilla", "noodle", "granola", "cereal", "kollo", "spaghetti", "penne", "macaroni", "kinche"] },
+  { label: "Spices & Oils", emoji: "\u{1F9C2}", keywords: ["berbere", "salt", "cumin", "turmeric", "cinnamon", "oregano", "basil", "oil", "olive", "vinegar", "soy sauce", "mustard", "mitmita", "cardamom", "clove", "rosemary", "thyme", "paprika", "chili", "dressing", "vinaigrette", "sauce", "ketchup", "mayo"] },
+  { label: "Pantry & Legumes", emoji: "\u{1FAD8}", keywords: ["lentil", "chickpea", "bean", "split pea", "shiro", "peanut", "almond", "nut", "walnut", "cashew", "sesame", "sunflower", "canned", "paste", "broth", "stock", "honey", "sugar", "jam", "tea", "coffee"] },
+];
+
+function categorizeIngredient(name: string): string {
+  const lower = name.toLowerCase();
+  for (const cat of GROCERY_CATEGORIES) {
+    if (cat.keywords.some(kw => lower.includes(kw))) return cat.label;
+  }
+  return "Other";
+}
+
+function getCategoryEmoji(label: string): string {
+  return GROCERY_CATEGORIES.find(c => c.label === label)?.emoji ?? "\u{1F4E6}";
+}
+
 export default function MealPlanner() {
   const [weekOffset, setWeekOffset] = useState(0);
   const weekStart = useMemo(() => {
@@ -61,6 +82,34 @@ export default function MealPlanner() {
   const today = new Date().toISOString().slice(0, 10);
   const { data: waterData } = useWaterIntake(today);
   const upsertWater = useUpsertWater();
+
+  const [showTwoWeeks, setShowTwoWeeks] = useState(false);
+  const nextWeekStart = useMemo(() => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  }, [weekStart]);
+  const { data: nextPlan } = useMealPlan(nextWeekStart);
+  const { data: nextMeals = [] } = useMeals(nextPlan?.id);
+
+  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+  const groceryStorageKey = `grocery-${plan?.id ?? ""}`;
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(groceryStorageKey);
+      setCheckedItems(saved ? new Set(JSON.parse(saved)) : new Set());
+    } catch { setCheckedItems(new Set()); }
+  }, [groceryStorageKey]);
+
+  const toggleChecked = (itemKey: string) => {
+    setCheckedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(itemKey)) next.delete(itemKey);
+      else next.add(itemKey);
+      localStorage.setItem(groceryStorageKey, JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   const [editingSlot, setEditingSlot] = useState<{ day: number; type: MealType } | null>(null);
   const [showDueDate, setShowDueDate] = useState(false);
@@ -144,8 +193,9 @@ export default function MealPlanner() {
   const waterGoal = waterData?.goal ?? 10;
 
   const groceryList = useMemo(() => {
-    const map = new Map<string, { name: string; qty: number; unit: string; mealCount: number }>();
-    meals.forEach((m: any) => {
+    const allMeals = showTwoWeeks ? [...meals, ...nextMeals] : meals;
+    const map = new Map<string, { name: string; qty: number; unit: string; mealCount: number; category: string }>();
+    allMeals.forEach((m: any) => {
       m.meal_ingredients?.forEach((ing: any) => {
         const key = `${ing.name.toLowerCase()}_${(ing.unit || "").toLowerCase()}`;
         const existing = map.get(key);
@@ -158,14 +208,30 @@ export default function MealPlanner() {
             qty: Number(ing.quantity || 0),
             unit: ing.unit || "",
             mealCount: 1,
+            category: categorizeIngredient(ing.name),
           });
         }
       });
     });
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [meals]);
+  }, [meals, nextMeals, showTwoWeeks]);
 
-  const totalEstimatedCost = meals.reduce((s: number, m: any) => s + Number(m.estimated_cost || 0), 0);
+  const groceryByCategory = useMemo(() => {
+    const grouped = new Map<string, typeof groceryList>();
+    for (const item of groceryList) {
+      if (!grouped.has(item.category)) grouped.set(item.category, []);
+      grouped.get(item.category)!.push(item);
+    }
+    const order = ["Protein", "Produce", "Dairy", "Grains & Bread", "Spices & Oils", "Pantry & Legumes", "Other"];
+    return order
+      .filter(cat => grouped.has(cat))
+      .map(cat => ({ category: cat, emoji: getCategoryEmoji(cat), items: grouped.get(cat)! }));
+  }, [groceryList]);
+
+  const totalEstimatedCost = useMemo(() => {
+    const allMeals = showTwoWeeks ? [...meals, ...nextMeals] : meals;
+    return allMeals.reduce((s: number, m: any) => s + Number(m.estimated_cost || 0), 0);
+  }, [meals, nextMeals, showTwoWeeks]);
 
   return (
     <div className="space-y-6">
@@ -328,7 +394,7 @@ export default function MealPlanner() {
           </div>
         </TabsContent>
 
-        <TabsContent value="grocery" className="mt-4">
+        <TabsContent value="grocery" className="mt-4 space-y-4">
           {groceryList.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
@@ -338,40 +404,72 @@ export default function MealPlanner() {
               </CardContent>
             </Card>
           ) : (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Weekly Grocery List</CardTitle>
+            <>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-2">
+                  <Switch checked={showTwoWeeks} onCheckedChange={setShowTwoWeeks} />
+                  <Label className="text-sm">Include next week</Label>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground">
+                    {checkedItems.size}/{groceryList.length} items
+                  </span>
                   {totalEstimatedCost > 0 && (
-                    <Badge variant="outline" className="text-sm">
-                      Est. Total: {formatETB(totalEstimatedCost)}
-                    </Badge>
+                    <Badge variant="outline">Est. {formatETB(totalEstimatedCost)}</Badge>
                   )}
                 </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ingredient</TableHead>
-                      <TableHead className="text-right w-[100px]">Quantity</TableHead>
-                      <TableHead className="w-[80px]">Unit</TableHead>
-                      <TableHead className="text-right w-[80px]">Meals</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {groceryList.map((item, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="font-medium capitalize">{item.name}</TableCell>
-                        <TableCell className="text-right">{item.qty % 1 === 0 ? item.qty : item.qty.toFixed(2)}</TableCell>
-                        <TableCell className="text-muted-foreground">{item.unit}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{item.mealCount}x</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+              </div>
+
+              <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-green-500 transition-all"
+                  style={{ width: `${groceryList.length > 0 ? (checkedItems.size / groceryList.length) * 100 : 0}%` }}
+                />
+              </div>
+
+              {groceryByCategory.map(({ category, emoji, items }) => {
+                const doneCount = items.filter(i => checkedItems.has(`${i.name}_${i.unit}`)).length;
+                return (
+                  <Card key={category}>
+                    <CardHeader className="py-3 px-4">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                          <span>{emoji}</span> {category}
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{items.length}</Badge>
+                        </CardTitle>
+                        <span className="text-xs text-muted-foreground">{doneCount}/{items.length}</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="divide-y">
+                        {items.map((item, i) => {
+                          const itemKey = `${item.name}_${item.unit}`;
+                          const isChecked = checkedItems.has(itemKey);
+                          return (
+                            <button
+                              key={i}
+                              onClick={() => toggleChecked(itemKey)}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-accent/50 transition-colors ${isChecked ? "opacity-50" : ""}`}
+                            >
+                              <div className={`h-5 w-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isChecked ? "bg-green-500 border-green-500" : "border-muted-foreground/30"}`}>
+                                {isChecked && <Check className="h-3 w-3 text-white" />}
+                              </div>
+                              <span className={`flex-1 text-sm capitalize ${isChecked ? "line-through text-muted-foreground" : "font-medium"}`}>
+                                {item.name}
+                              </span>
+                              <span className="text-sm text-muted-foreground tabular-nums">
+                                {item.qty % 1 === 0 ? item.qty : item.qty.toFixed(2)} {item.unit}
+                              </span>
+                              <span className="text-xs text-muted-foreground w-8 text-right">{item.mealCount}x</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </>
           )}
         </TabsContent>
       </Tabs>
