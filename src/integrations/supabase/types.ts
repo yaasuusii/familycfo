@@ -292,6 +292,44 @@ export type Database = {
         }
         Relationships: []
       }
+      meal_ingredients: {
+        Row: {
+          created_at: string | null
+          estimated_cost: number | null
+          id: string
+          meal_id: string
+          name: string
+          quantity: number | null
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          estimated_cost?: number | null
+          id?: string
+          meal_id: string
+          name: string
+          quantity?: number | null
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          estimated_cost?: number | null
+          id?: string
+          meal_id?: string
+          name?: string
+          quantity?: number | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_ingredients_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meal_nutrition: {
         Row: {
           id: string
