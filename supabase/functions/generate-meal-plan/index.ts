@@ -3,14 +3,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_MODELS = [
-  "openrouter/free",
-  "openrouter/owl-alpha",
-  "deepseek/deepseek-v4-flash:free",
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "openai/gpt-oss-20b:free",
-];
+const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -18,28 +11,41 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const openrouterKey = Deno.env.get("OPENROUTER_API_KEY");
-    if (!openrouterKey) {
-      return new Response(JSON.stringify({ error: "OpenRouter API key not configured" }), {
+    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!lovableKey) {
+      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const { trimester, weeksPregnant, budget, previousMeals, cravings } = await req.json();
-
     const prompt = buildPrompt({ trimester, weeksPregnant, budget, previousMeals, cravings });
 
-    const { data, error } = await generateWithFallback(openrouterKey, prompt);
+    const response = await fetch(AI_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${lovableKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: "You are an Ethiopian meal planning assistant for a pregnant woman. You MUST respond with ONLY valid JSON, no markdown, no explanation." },
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
 
-    if (error) {
-      return new Response(JSON.stringify({ error }), {
+    if (!response.ok) {
+      const err = await response.text();
+      return new Response(JSON.stringify({ error: `AI gateway error: ${err}` }), {
         status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const data = await response.json();
     const content = data.choices?.[0]?.message?.content ?? "";
 
-    // Extract JSON from response (handle possible markdown wrapping)
     let jsonStr = content.trim();
     if (jsonStr.startsWith("```")) {
       jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
@@ -56,44 +62,6 @@ Deno.serve(async (req) => {
     });
   }
 });
-
-async function generateWithFallback(openrouterKey: string, prompt: string) {
-  let lastError = "OpenRouter request failed";
-
-  for (const model of OPENROUTER_MODELS) {
-    const response = await fetch(OPENROUTER_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${openrouterKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://familycfo.lovable.app",
-        "X-Title": "Family CFO Meal Planner",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: "You are an Ethiopian meal planning assistant for a pregnant woman. You MUST respond with ONLY valid JSON, no markdown, no explanation." },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.8,
-        max_tokens: 4000,
-      }),
-    });
-
-    if (response.ok) {
-      return { data: await response.json(), error: null };
-    }
-
-    const err = await response.text();
-    lastError = `OpenRouter error with ${model}: ${err}`;
-
-    if (response.status !== 404) {
-      break;
-    }
-  }
-
-  return { data: null, error: lastError };
-}
 
 function buildPrompt({ trimester, weeksPregnant, budget, previousMeals, cravings }: {
   trimester?: number;
