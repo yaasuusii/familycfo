@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
         "X-Title": "Family CFO Meal Planner",
       },
       body: JSON.stringify({
-        model: "deepseek/deepseek-chat-v3-0324:free",
+        model: "deepseek/deepseek-chat-v3.1:free",
         messages: [
           { role: "system", content: "You are an Ethiopian meal planning assistant for a pregnant woman. You MUST respond with ONLY valid JSON, no markdown, no explanation." },
           { role: "user", content: prompt },
