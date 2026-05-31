@@ -40,12 +40,12 @@ const MEAL_SLOT_COLORS: Record<MealType, string> = {
 };
 
 const GROCERY_CATEGORIES = [
-  { label: "Protein", emoji: "\u{1F969}", keywords: ["chicken", "beef", "lamb", "fish", "tilapia", "salmon", "shrimp", "egg", "tuna", "turkey", "meatball", "mince", "ground meat", "steak"] },
-  { label: "Produce", emoji: "\u{1F96C}", keywords: ["onion", "tomato", "garlic", "ginger", "carrot", "potato", "lettuce", "spinach", "kale", "avocado", "lemon", "lime", "orange", "banana", "apple", "mango", "papaya", "watermelon", "pepper", "cucumber", "broccoli", "asparagus", "zucchini", "mushroom", "corn", "cabbage", "celery", "pea", "beetroot", "sweet potato", "berry", "grape", "guava", "pineapple", "strawberry", "date", "fig"] },
+  { label: "Protein", emoji: "\u{1F969}", keywords: ["chicken", "beef", "lamb", "fish", "tilapia", "salmon", "shrimp", "egg", "tuna", "turkey", "meatball", "mince", "ground meat", "steak", "cod"] },
+  { label: "Produce", emoji: "\u{1F96C}", keywords: ["onion", "tomato", "garlic", "ginger", "carrot", "potato", "lettuce", "spinach", "kale", "avocado", "lemon", "lime", "orange", "banana", "apple", "mango", "papaya", "watermelon", "pepper", "cucumber", "broccoli", "asparagus", "zucchini", "mushroom", "corn", "cabbage", "celery", "pea", "beetroot", "sweet potato", "berry", "berries", "grape", "guava", "pineapple", "strawberry", "blueberry", "date", "fig", "peach", "pear", "mixed greens", "green"] },
   { label: "Dairy", emoji: "\u{1F9C0}", keywords: ["milk", "cheese", "yogurt", "butter", "cream", "ayib", "curd", "sour cream"] },
-  { label: "Grains & Bread", emoji: "\u{1F33E}", keywords: ["bread", "injera", "pasta", "rice", "flour", "oat", "barley", "teff", "wheat", "tortilla", "noodle", "granola", "cereal", "kollo", "spaghetti", "penne", "macaroni", "kinche"] },
-  { label: "Spices & Oils", emoji: "\u{1F9C2}", keywords: ["berbere", "salt", "cumin", "turmeric", "cinnamon", "oregano", "basil", "oil", "olive", "vinegar", "soy sauce", "mustard", "mitmita", "cardamom", "clove", "rosemary", "thyme", "paprika", "chili", "dressing", "vinaigrette", "sauce", "ketchup", "mayo"] },
-  { label: "Pantry & Legumes", emoji: "\u{1FAD8}", keywords: ["lentil", "chickpea", "bean", "split pea", "shiro", "peanut", "almond", "nut", "walnut", "cashew", "sesame", "sunflower", "canned", "paste", "broth", "stock", "honey", "sugar", "jam", "tea", "coffee"] },
+  { label: "Grains & Bread", emoji: "\u{1F33E}", keywords: ["bread", "toast", "injera", "pasta", "rice", "flour", "oat", "barley", "teff", "wheat", "tortilla", "noodle", "granola", "cereal", "kollo", "spaghetti", "penne", "macaroni", "kinche", "pancake", "cracker", "pita", "dough"] },
+  { label: "Spices & Oils", emoji: "\u{1F9C2}", keywords: ["berbere", "salt", "cumin", "turmeric", "cinnamon", "oregano", "basil", "oil", "olive", "vinegar", "soy sauce", "mustard", "mitmita", "cardamom", "clove", "rosemary", "thyme", "paprika", "chili", "dressing", "vinaigrette", "sauce", "ketchup", "mayo", "mayonnaise", "syrup"] },
+  { label: "Pantry & Legumes", emoji: "\u{1FAD8}", keywords: ["lentil", "chickpea", "bean", "split pea", "shiro", "peanut", "almond", "nut", "walnut", "cashew", "sesame", "sunflower", "canned", "paste", "broth", "stock", "honey", "sugar", "jam", "tea", "coffee", "hummus", "fava"] },
 ];
 
 function categorizeIngredient(name: string): string {
@@ -61,35 +61,48 @@ function getCategoryEmoji(label: string): string {
 }
 
 const SHOPPING_GROUPS: { name: string; match: RegExp; exclude: RegExp }[] = [
+  // Proteins
   { name: "Beef", match: /\bbeef\b/i, exclude: /broth|stock/i },
-  { name: "Chicken", match: /\bchicken\b/i, exclude: /broth|stock|noodle|soup/i },
+  { name: "Chicken", match: /\bchicken\b/i, exclude: /broth|stock|noodle/i },
   { name: "Lamb", match: /\blamb\b/i, exclude: /broth|stock/i },
   { name: "Eggs", match: /\beggs?\b/i, exclude: /noodle|plant/i },
   { name: "Salmon", match: /\bsalmon\b/i, exclude: /^$/i },
   { name: "Tilapia", match: /\btilapia\b/i, exclude: /^$/i },
   { name: "Tuna", match: /\btuna\b/i, exclude: /^$/i },
+  { name: "Cod", match: /\bcod\b/i, exclude: /^$/i },
+  { name: "Fish", match: /\bfish\b/i, exclude: /sauce/i },
+  // Produce
   { name: "Onion", match: /\bonions?\b/i, exclude: /powder|ring/i },
   { name: "Tomato", match: /\btomato(es)?\b/i, exclude: /paste|sauce|puree|ketchup/i },
   { name: "Garlic", match: /\bgarlic\b/i, exclude: /powder|bread/i },
   { name: "Carrot", match: /\bcarrots?\b/i, exclude: /cake/i },
-  { name: "Potato", match: /\bpotat(o|oes)\b/i, exclude: /chip|crisp|sweet/i },
   { name: "Sweet Potato", match: /\bsweet potato(es)?\b/i, exclude: /^$/i },
-  { name: "Bell Pepper", match: /\b(bell )?pepper\b/i, exclude: /black|white|cayenne|chili|spice/i },
+  { name: "Potato", match: /\bpotat(o|oes)\b/i, exclude: /chip|crisp|sweet/i },
+  { name: "Bell Pepper", match: /\b(bell )?peppers?\b/i, exclude: /black|white|cayenne|chili|spice/i },
   { name: "Spinach", match: /\bspinach\b/i, exclude: /^$/i },
   { name: "Lettuce", match: /\blettuce\b/i, exclude: /^$/i },
+  { name: "Mixed Greens", match: /\bmixed greens\b/i, exclude: /^$/i },
   { name: "Cabbage", match: /\bcabbage\b/i, exclude: /^$/i },
-  { name: "Rice", match: /\brice\b/i, exclude: /cake|paper|vinegar|wine/i },
-  { name: "Pasta", match: /\b(pasta|spaghetti|penne|macaroni|fusilli|linguine)\b/i, exclude: /sauce/i },
-  { name: "Butter", match: /\bbutter\b/i, exclude: /peanut|almond|nut/i },
-  { name: "Flour", match: /\bflour\b/i, exclude: /flower/i },
+  { name: "Berries", match: /\b(berries|blueberr|strawberr|mixed berr)/i, exclude: /^$/i },
   { name: "Banana", match: /\bbananas?\b/i, exclude: /^$/i },
   { name: "Avocado", match: /\bavocados?\b/i, exclude: /^$/i },
   { name: "Mango", match: /\bmango(es|s)?\b/i, exclude: /chutney/i },
   { name: "Lemon", match: /\blemons?\b/i, exclude: /grass/i },
   { name: "Orange", match: /\boranges?\b/i, exclude: /juice/i },
+  // Dairy
   { name: "Yogurt", match: /\byogurt\b/i, exclude: /^$/i },
   { name: "Milk", match: /\bmilk\b/i, exclude: /coconut/i },
   { name: "Cheese", match: /\bcheese\b/i, exclude: /cake/i },
+  { name: "Butter", match: /\bbutter\b/i, exclude: /peanut|almond|nut/i },
+  { name: "Cream", match: /\bcream\b/i, exclude: /ice/i },
+  // Grains
+  { name: "Rice", match: /\brice\b/i, exclude: /cake|paper|vinegar|wine/i },
+  { name: "Pasta", match: /\b(pasta|spaghetti|penne|macaroni|fusilli|linguine|noodle)/i, exclude: /sauce/i },
+  { name: "Bread", match: /\b(bread|toast)\b/i, exclude: /^$/i },
+  { name: "Flour", match: /\bflour\b/i, exclude: /flower/i },
+  { name: "Oats", match: /\boats?\b/i, exclude: /^$/i },
+  // Oils
+  { name: "Olive Oil", match: /\bolive oil\b/i, exclude: /^$/i },
 ];
 
 function getShoppingName(ingredientName: string): string {
@@ -97,20 +110,29 @@ function getShoppingName(ingredientName: string): string {
   for (const group of SHOPPING_GROUPS) {
     if (group.match.test(name) && !group.exclude.test(name)) return group.name;
   }
-  return ingredientName;
+  // Capitalize first letter for unmatched items
+  return ingredientName.charAt(0).toUpperCase() + ingredientName.slice(1).toLowerCase();
 }
 
 function normalizeUnit(qty: number, unit: string): { qty: number; unit: string } {
   const u = unit.toLowerCase().trim();
+  // Weight → grams
   if (u === "kg") return { qty: qty * 1000, unit: "g" };
+  // Volume → ml
   if (u === "l" || u === "liter" || u === "litre") return { qty: qty * 1000, unit: "ml" };
+  if (u === "cup") return { qty: qty * 240, unit: "ml" };
+  if (u === "tbsp") return { qty: qty * 15, unit: "ml" };
+  if (u === "tsp") return { qty: qty * 5, unit: "ml" };
+  // Count
   if (u === "piece" || u === "pieces" || u === "pc") return { qty, unit: "pcs" };
+  if (u === "clove" || u === "cloves") return { qty, unit: "pcs" };
   return { qty, unit: u };
 }
 
 function displayUnit(qty: number, unit: string): { qty: number; unit: string } {
   if (unit === "g" && qty >= 1000) return { qty: +(qty / 1000).toFixed(2), unit: "kg" };
-  if (unit === "ml" && qty >= 1000) return { qty: +(qty / 1000).toFixed(2), unit: "L" };
+  if (unit === "ml" && qty >= 1000) return { qty: +(qty / 1000).toFixed(1), unit: "L" };
+  if (unit === "ml") return { qty: Math.round(qty), unit: "ml" };
   return { qty, unit };
 }
 

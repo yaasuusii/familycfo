@@ -118,10 +118,24 @@ SAFETY — NEVER include: raw meat/kitfo, alcohol, high-mercury fish (shark, swo
 Each meal needs nutrition tags from: ${nutrients}
 
 Output format — JSON array of exactly 35 objects:
-{"day":0,"meal_type":"breakfast","name":"Genfo with Butter","nutrients":["iron","calcium"],"estimated_cost":45,"ingredients":[{"name":"barley flour","qty":0.25,"unit":"kg"},{"name":"butter","qty":50,"unit":"g"},{"name":"berbere","qty":1,"unit":"tbsp"}]}
+{"day":0,"meal_type":"breakfast","name":"Genfo with Butter","nutrients":["iron","calcium"],"estimated_cost":45,"ingredients":[{"name":"barley flour","qty":250,"unit":"g"},{"name":"butter","qty":50,"unit":"g"},{"name":"berbere","qty":5,"unit":"g"}]}
 
 day: 0=Mon to 6=Sun. meal_type: one of ${mealTypes}. name: 2-5 words. nutrients: relevant tags. estimated_cost: ETB total for the meal.
-ingredients: array of {"name","qty","unit"} — list the key ingredients with realistic quantities. Units: kg, g, pcs, cup, tbsp, tsp, ml, L.
+
+INGREDIENT RULES (critical for grocery list aggregation):
+1. Use BASE SHOPPING NAMES — the item you buy at a store, not the preparation:
+   - Write "chicken" not "grilled chicken breast" or "cooked chicken"
+   - Write "beef" not "beef stew meat" or "minced beef"
+   - Write "egg" not "boiled egg" or "hard-boiled egg"
+   - Write "bread" not "whole wheat toast" or "whole grain bread"
+   - Write "onion" not "diced red onion"
+   - Write "tomato" not "chopped tomatoes"
+   - Write "bell pepper" not "green bell pepper"
+2. Use GRAMS (g) for ALL solids and produce (meat, vegetables, cheese, flour, nuts, butter, pasta, rice, etc.)
+3. Use MILLILITERS (ml) for ALL liquids (milk, oil, broth, water, cream, yogurt, honey, soy sauce, vinegar)
+4. Use PIECES (pcs) ONLY for whole countable items that you buy by count (egg, banana, apple, orange, mango, lemon, avocado, tortilla, bread, injera)
+5. NEVER use cup, tbsp, tsp — always convert to g or ml
+6. The SAME ingredient must use the SAME unit across all 35 meals. If "chicken" is in grams in one meal, it must be grams everywhere.
 
 ONLY output the JSON array. No other text.`;
 
