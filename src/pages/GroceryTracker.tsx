@@ -33,6 +33,7 @@ export default function GroceryTracker() {
   const { data: marketPrices = [] } = useMarketPrices();
   const saveMarketPrices = useSaveMarketPrices();
   const [showPasteDialog, setShowPasteDialog] = useState(false);
+  const [showPricesDialog, setShowPricesDialog] = useState(false);
   const [pasteText, setPasteText] = useState("");
   const [parsedPreview, setParsedPreview] = useState<ParsedPrice[]>([]);
 
@@ -57,6 +58,11 @@ export default function GroceryTracker() {
   const lastUpdated = marketPrices.length > 0
     ? new Date(Math.max(...marketPrices.map((p) => new Date(p.updated_at).getTime()))).toLocaleDateString()
     : null;
+
+  const categoryCount = useMemo(() => {
+    const cats = new Set(marketPrices.map(p => p.category || "Other"));
+    return cats.size;
+  }, [marketPrices]);
 
   const groceryExpenses = useMemo(() => allExpenses.filter((e) => e.category === "Grocery"), [allExpenses]);
   const totalGrocery = groceryExpenses.reduce((s, e) => s + Number(e.amount), 0);
@@ -146,65 +152,32 @@ export default function GroceryTracker() {
         </Card>
       )}
 
-      {/* Market Prices */}
+      {/* Market Prices — compact bar */}
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">Market Prices</CardTitle>
-              {lastUpdated && (
-                <p className="text-xs text-muted-foreground mt-1">Last updated: {lastUpdated}</p>
-              )}
+        <CardContent className="flex items-center justify-between py-3 px-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
+              <Tag className="h-4 w-4 text-primary" />
             </div>
+            <div>
+              <p className="text-sm font-medium">Market Prices</p>
+              <p className="text-xs text-muted-foreground">
+                {marketPrices.length > 0
+                  ? `${marketPrices.length} items across ${categoryCount} categories${lastUpdated ? ` · Updated ${lastUpdated}` : ""}`
+                  : "No prices yet — paste from Telegram to get started"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {marketPrices.length > 0 && (
+              <Button size="sm" variant="ghost" onClick={() => setShowPricesDialog(true)}>
+                View All
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={() => setShowPasteDialog(true)}>
               <ClipboardPaste className="h-4 w-4 mr-1" /> Paste Prices
             </Button>
           </div>
-        </CardHeader>
-        <CardContent>
-          {marketPrices.length > 0 ? (
-            <div className="space-y-4">
-              {Object.entries(
-                marketPrices.reduce<Record<string, typeof marketPrices>>((acc, p) => {
-                  const cat = p.category || "Other";
-                  if (!acc[cat]) acc[cat] = [];
-                  acc[cat].push(p);
-                  return acc;
-                }, {})
-              ).map(([category, items]) => (
-                <div key={category}>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-1">
-                    <Tag className="h-3 w-3" /> {category}
-                  </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
-                      >
-                        <div>
-                          <span className="font-medium capitalize">{item.name}</span>
-                          {item.name_amharic && (
-                            <span className="text-muted-foreground ml-1 text-xs">({item.name_amharic})</span>
-                          )}
-                        </div>
-                        <Badge variant="secondary" className="ml-2 shrink-0">
-                          {formatETB(Number(item.price))}/{item.unit}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 space-y-2">
-              <p className="text-muted-foreground">No market prices yet</p>
-              <p className="text-xs text-muted-foreground">
-                Paste a price list from your Telegram channel to get started
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -290,6 +263,47 @@ export default function GroceryTracker() {
                 </Button>
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View All Prices Dialog */}
+      <Dialog open={showPricesDialog} onOpenChange={setShowPricesDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Market Prices ({marketPrices.length} items)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {Object.entries(
+              marketPrices.reduce<Record<string, typeof marketPrices>>((acc, p) => {
+                const cat = p.category || "Other";
+                if (!acc[cat]) acc[cat] = [];
+                acc[cat].push(p);
+                return acc;
+              }, {})
+            ).map(([category, items]) => (
+              <div key={category}>
+                <h4 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                  <Tag className="h-3 w-3" /> {category}
+                  <Badge variant="secondary" className="text-[10px] ml-1">{items.length}</Badge>
+                </h4>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableBody>
+                      {items.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium capitalize py-2">{item.name}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs py-2">{item.name_amharic || ""}</TableCell>
+                          <TableCell className="text-right py-2 tabular-nums font-medium">
+                            {formatETB(Number(item.price))}/{item.unit}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>
