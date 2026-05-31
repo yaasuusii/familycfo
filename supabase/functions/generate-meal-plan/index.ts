@@ -131,11 +131,11 @@ INGREDIENT RULES (critical for grocery list aggregation):
    - Write "onion" not "diced red onion"
    - Write "tomato" not "chopped tomatoes"
    - Write "bell pepper" not "green bell pepper"
-2. Use GRAMS (g) for ALL solids and produce (meat, vegetables, cheese, flour, nuts, butter, pasta, rice, etc.)
-3. Use MILLILITERS (ml) for ALL liquids (milk, oil, broth, water, cream, yogurt, honey, soy sauce, vinegar)
-4. Use PIECES (pcs) ONLY for whole countable items that you buy by count (egg, banana, apple, orange, mango, lemon, avocado, tortilla, bread, injera)
-5. NEVER use cup, tbsp, tsp — always convert to g or ml
-6. The SAME ingredient must use the SAME unit across all 35 meals. If "chicken" is in grams in one meal, it must be grams everywhere.
+2. Use GRAMS (g) for ALL solids and produce (meat, vegetables, leafy greens, cheese, flour, nuts, butter, pasta, rice, broccoli, lettuce, spinach, carrots, etc.) — weigh them, never measure by volume
+3. Use MILLILITERS (ml) for ALL true liquids ONLY (milk, oil, broth, water, cream, yogurt, honey, soy sauce, vinegar)
+4. Use PIECES (pcs) ONLY for whole countable items bought by count (egg, banana, apple, orange, mango, lemon, avocado, tortilla, bread, injera)
+5. ABSOLUTELY NEVER use cup, tbsp, tsp, clove, stalk, handful, or any volume/informal unit. Convert to grams. Examples: "1 cup chopped broccoli" → {"name":"broccoli","qty":90,"unit":"g"}; "2 cloves garlic" → {"name":"garlic","qty":6,"unit":"g"}; "1 tbsp ginger" → {"name":"ginger","qty":15,"unit":"g"}. The unit field MUST be exactly one of: "g", "ml", or "pcs".
+6. The SAME ingredient must use the SAME unit across all 35 meals. If "broccoli" is in grams in one meal, it must be grams everywhere — never mix grams and pcs for the same item.
 
 ONLY output the JSON array. No other text.`;
 

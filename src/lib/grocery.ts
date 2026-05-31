@@ -68,15 +68,82 @@ export function getShoppingName(ingredientName: string): string {
   return ingredientName.charAt(0).toUpperCase() + ingredientName.slice(1).toLowerCase();
 }
 
-export function normalizeUnit(qty: number, unit: string): { qty: number; unit: string } {
+// Ingredients genuinely measured by volume — a "cup" of these stays ml.
+const LIQUID_KEYWORDS = [
+  "oil", "milk", "water", "broth", "stock", "juice", "vinegar",
+  "sauce", "syrup", "honey", "wine", "cream",
+];
+
+function isLiquid(name: string): boolean {
+  const lower = name.toLowerCase();
+  return LIQUID_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+// Approximate grams per single piece, keyed by substring of the shopping name.
+// Used to reconcile pcs ↔ kg when an item is counted but priced by weight.
+// Longer keys first so "sweet potato" wins over "potato".
+const WEIGHT_PER_PIECE: [string, number][] = [
+  ["sweet potato", 200], ["bell pepper", 120], ["red onion", 150],
+  ["watermelon", 4000], ["pineapple", 1000], ["cabbage", 1000],
+  ["broccoli", 350], ["lettuce", 300], ["cucumber", 300], ["eggplant", 250],
+  ["zucchini", 200], ["avocado", 200], ["potato", 170], ["beetroot", 150],
+  ["onion", 150], ["orange", 130], ["banana", 120], ["tomato", 120],
+  ["mango", 200], ["lemon", 100], ["apple", 180], ["papaya", 1000],
+  ["lime", 70], ["carrot", 65], ["egg", 50], ["garlic", 45],
+  ["celery", 40], ["ginger", 30], ["chili", 15], ["pepper", 120],
+];
+
+// Approximate grams per cup for chopped/loose solids. Default 120g.
+const GRAMS_PER_CUP: [string, number][] = [
+  ["spinach", 30], ["lettuce", 55], ["kale", 65], ["mushroom", 70],
+  ["broccoli", 90], ["cabbage", 90], ["oats", 90], ["cauliflower", 100],
+  ["pepper", 150], ["berries", 150], ["onion", 160], ["corn", 165],
+  ["tomato", 180], ["beans", 180], ["lentil", 190], ["chickpea", 200],
+  ["rice", 200], ["sugar", 200], ["flour", 125], ["cheese", 110], ["carrot", 128],
+];
+
+function tableLookup(name: string, table: [string, number][]): number | null {
+  const lower = name.toLowerCase();
+  for (const [key, val] of table) {
+    if (lower.includes(key)) return val;
+  }
+  return null;
+}
+
+export function pieceGrams(name: string): number | null {
+  return tableLookup(name, WEIGHT_PER_PIECE);
+}
+
+export function cupGrams(name: string): number {
+  return tableLookup(name, GRAMS_PER_CUP) ?? 120;
+}
+
+/**
+ * Normalize a raw ingredient quantity to a display base unit:
+ *   solids → g, liquids → ml, countables → pcs
+ * Volume units (cup/tbsp/tsp) on SOLIDS convert to grams (not ml),
+ * so chopped broccoli shows "90 g" instead of "240 ml".
+ */
+export function normalizeUnit(qty: number, unit: string, name = ""): { qty: number; unit: string } {
   const u = unit.toLowerCase().trim().replace(/s$/, "");
+  const liquid = isLiquid(name);
+
+  // Weight
   if (u === "kg") return { qty: qty * 1000, unit: "g" };
-  if (u === "l" || u === "liter" || u === "litre") return { qty: qty * 1000, unit: "ml" };
-  if (u === "cup") return { qty: qty * 240, unit: "ml" };
-  if (u === "tbsp") return { qty: qty * 15, unit: "ml" };
-  if (u === "tsp") return { qty: qty * 5, unit: "ml" };
+  if (u === "g" || u === "gram" || u === "gm") return { qty, unit: "g" };
+
+  // Volume → ml for liquids, grams for solids
+  if (u === "l" || u === "liter" || u === "litre") return { qty: qty * 1000, unit: liquid ? "ml" : "g" };
+  if (u === "ml") return { qty, unit: liquid ? "ml" : "g" };
+  if (u === "cup") return liquid ? { qty: qty * 240, unit: "ml" } : { qty: qty * cupGrams(name), unit: "g" };
+  if (u === "tbsp") return liquid ? { qty: qty * 15, unit: "ml" } : { qty: qty * 15, unit: "g" };
+  if (u === "tsp") return liquid ? { qty: qty * 5, unit: "ml" } : { qty: qty * 5, unit: "g" };
+
+  // Count
   if (u === "piece" || u === "pc" || u === "pcs") return { qty, unit: "pcs" };
-  if (u === "clove") return { qty, unit: "pcs" };
+  if (u === "clove") return { qty: qty * 3, unit: "g" };   // a garlic clove ≈ 3 g
+  if (u === "stalk" || u === "stick") return { qty, unit: "pcs" };
+
   return { qty, unit: u };
 }
 
@@ -125,7 +192,7 @@ export function aggregateGroceryList(meals: any[]): GroceryItem[] {
   meals.forEach((m: any) => {
     m.meal_ingredients?.forEach((ing: any) => {
       const shoppingName = getShoppingName(ing.name);
-      const norm = normalizeUnit(Number(ing.quantity || 0), ing.unit || "");
+      const norm = normalizeUnit(Number(ing.quantity || 0), ing.unit || "", shoppingName);
       const key = `${shoppingName.toLowerCase()}_${norm.unit}`;
       const existing = byUnit.get(key);
       if (existing) {
@@ -164,8 +231,36 @@ export function aggregateGroceryList(meals: any[]): GroceryItem[] {
   return Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Convert a display quantity to grams. Returns null if not reconcilable. */
+function toGrams(name: string, qty: number, unit: string): number | null {
+  switch (unit) {
+    case "g": return qty;
+    case "kg": return qty * 1000;
+    case "ml": return qty;          // 1 ml ≈ 1 g (water-like approximation)
+    case "L": return qty * 1000;
+    case "pcs": {
+      const pg = pieceGrams(name);
+      return pg != null ? qty * pg : null;
+    }
+    default: return null;
+  }
+}
+
+/** Convert a display quantity to a piece count. Returns null if not reconcilable. */
+function toPcs(name: string, qty: number, unit: string): number | null {
+  if (unit === "pcs") return qty;
+  const grams = toGrams(name, qty, unit);
+  const pg = pieceGrams(name);
+  return grams != null && pg ? grams / pg : null;
+}
+
 /**
  * Attach market-price-based costs to each grocery item.
+ *
+ * Market prices are stored per kg or per pcs. We reconcile the grocery
+ * quantity to the SAME unit the price uses (converting via weight-per-piece
+ * estimates when needed). If ANY portion can't be reconciled, marketCost is
+ * null (the UI shows "—") rather than a misleading number.
  */
 export function addMarketCosts(
   items: GroceryItem[],
@@ -178,19 +273,27 @@ export function addMarketCosts(
     const match = lookupPrice(item.name, marketPrices);
     if (!match) return { ...item, marketCost: null };
 
-    let totalCost = 0;
-    for (const q of item.quantities) {
-      if (match.unit === "kg") {
-        if (q.unit === "kg") totalCost += q.qty * match.price;
-        else if (q.unit === "g") totalCost += (q.qty / 1000) * match.price;
-        else totalCost += q.qty * match.price;
-      } else if (match.unit === "pcs") {
-        totalCost += q.qty * match.price;
-      } else {
-        totalCost += q.qty * match.price;
+    if (match.unit === "kg") {
+      let grams = 0;
+      for (const q of item.quantities) {
+        const g = toGrams(item.name, q.qty, q.unit);
+        if (g == null) return { ...item, marketCost: null };
+        grams += g;
       }
+      return { ...item, marketCost: Math.round((grams / 1000) * match.price) };
     }
-    return { ...item, marketCost: Math.round(totalCost) };
+
+    if (match.unit === "pcs") {
+      let pcs = 0;
+      for (const q of item.quantities) {
+        const p = toPcs(item.name, q.qty, q.unit);
+        if (p == null) return { ...item, marketCost: null };
+        pcs += p;
+      }
+      return { ...item, marketCost: Math.round(pcs * match.price) };
+    }
+
+    return { ...item, marketCost: null };
   });
 }
 

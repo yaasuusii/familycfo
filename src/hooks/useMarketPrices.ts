@@ -138,22 +138,27 @@ export function lookupPrice(
   itemName: string,
   prices: MarketPrice[]
 ): { price: number; unit: string; matchedName: string } | null {
-  const lower = itemName.toLowerCase();
+  const lower = itemName.toLowerCase().trim();
+  const result = (p: MarketPrice) => ({ price: Number(p.price), unit: p.unit, matchedName: p.name });
 
-  // Exact match first
-  const exact = prices.find((p) => p.name === lower);
-  if (exact) return { price: Number(exact.price), unit: exact.unit, matchedName: exact.name };
+  // 1. Exact match
+  const exact = prices.find((p) => p.name.toLowerCase().trim() === lower);
+  if (exact) return result(exact);
 
-  // Keyword match — find prices where the item name appears in the price name or vice versa
-  const matches = prices.filter(
-    (p) => p.name.includes(lower) || lower.includes(p.name.split(" ")[0])
-  );
+  // 2. Substring match — grocery name contained in price name or vice versa
+  //    (e.g. "onion" ↔ "red onion habesha"). Guard against very short names.
+  const groceryTokens = lower.split(/\s+/).filter((t) => t.length >= 4);
+  const matches = prices.filter((p) => {
+    const pn = p.name.toLowerCase().trim();
+    if (pn.includes(lower) || lower.includes(pn)) return true;
+    // 3. Share a significant whole word (≥4 chars) — avoids "greens" ⊃ "green" false hits
+    const pTokens = pn.split(/\s+/);
+    return groceryTokens.some((gt) => pTokens.includes(gt));
+  });
 
   if (matches.length === 0) return null;
 
-  // Return cheapest match
-  const cheapest = matches.reduce((best, p) =>
-    Number(p.price) < Number(best.price) ? p : best
-  );
-  return { price: Number(cheapest.price), unit: cheapest.unit, matchedName: cheapest.name };
+  // Prefer the cheapest matching variety
+  const cheapest = matches.reduce((best, p) => (Number(p.price) < Number(best.price) ? p : best));
+  return result(cheapest);
 }
