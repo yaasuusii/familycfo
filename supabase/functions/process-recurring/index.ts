@@ -45,22 +45,33 @@ Deno.serve(async (req) => {
       if (rule.end_date && nextDate > new Date(rule.end_date)) break;
 
       const dateStr = nextDate.toISOString().split("T")[0];
-      await supabase.from("income").insert({
-        user_id: rule.created_by,
-        source: rule.title,
-        amount: rule.amount,
-        date: dateStr,
-        notes: "Auto-generated from recurring rule",
-        is_auto_generated: true,
-        recurring_id: rule.id,
-      });
+
+      // Idempotency: skip if this recurring_id + date already exists
+      const { data: existing } = await supabase
+        .from("income")
+        .select("id")
+        .eq("recurring_id", rule.id)
+        .eq("date", dateStr)
+        .limit(1);
+
+      if (!existing || existing.length === 0) {
+        await supabase.from("income").insert({
+          user_id: rule.created_by,
+          source: rule.title,
+          amount: rule.amount,
+          date: dateStr,
+          notes: "Auto-generated from recurring rule",
+          is_auto_generated: true,
+          recurring_id: rule.id,
+        });
+        generated++;
+      }
 
       await supabase
         .from("recurring_income")
         .update({ last_generated_date: dateStr })
         .eq("id", rule.id);
 
-      generated++;
       nextDate = addPeriod(nextDate, rule.frequency);
     }
   }
@@ -81,23 +92,34 @@ Deno.serve(async (req) => {
       if (rule.end_date && nextDate > new Date(rule.end_date)) break;
 
       const dateStr = nextDate.toISOString().split("T")[0];
-      await supabase.from("expenses").insert({
-        user_id: rule.created_by,
-        category: rule.category,
-        amount: rule.amount,
-        date: dateStr,
-        payment_method: "CBE",
-        notes: "Auto-generated from recurring rule",
-        is_auto_generated: true,
-        recurring_id: rule.id,
-      });
+
+      // Idempotency: skip if this recurring_id + date already exists
+      const { data: existing } = await supabase
+        .from("expenses")
+        .select("id")
+        .eq("recurring_id", rule.id)
+        .eq("date", dateStr)
+        .limit(1);
+
+      if (!existing || existing.length === 0) {
+        await supabase.from("expenses").insert({
+          user_id: rule.created_by,
+          category: rule.category,
+          amount: rule.amount,
+          date: dateStr,
+          payment_method: "CBE",
+          notes: "Auto-generated from recurring rule",
+          is_auto_generated: true,
+          recurring_id: rule.id,
+        });
+        generated++;
+      }
 
       await supabase
         .from("recurring_expenses")
         .update({ last_generated_date: dateStr })
         .eq("id", rule.id);
 
-      generated++;
       nextDate = addPeriod(nextDate, rule.frequency);
     }
   }

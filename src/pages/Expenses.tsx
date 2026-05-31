@@ -49,6 +49,7 @@ export default function Expenses() {
   const [filterPayment, setFilterPayment] = useState("all");
   const [sortAmount, setSortAmount] = useState<"none" | "asc" | "desc">("none");
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "" });
+  const [submitting, setSubmitting] = useState(false);
 
   const activeFilterCount = [filterCategory, filterUser, filterPayment].filter((f) => f !== "all").length;
 
@@ -73,20 +74,25 @@ export default function Expenses() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-    const { error } = await supabase.from("expenses").insert({
-      user_id: user.id,
-      date: form.date,
-      category: form.category,
-      amount: parseFloat(form.amount),
-      payment_method: form.payment_method,
-      notes: form.notes || null,
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success("Expense added");
-    setOpen(false);
-    setForm({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "" });
-    queryClient.invalidateQueries({ queryKey: ["expenses"] });
+    if (!user || submitting) return;
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("expenses").insert({
+        user_id: user.id,
+        date: form.date,
+        category: form.category,
+        amount: parseFloat(form.amount),
+        payment_method: form.payment_method,
+        notes: form.notes || null,
+      });
+      if (error) { toast.error(error.message); return; }
+      toast.success("Expense added");
+      setOpen(false);
+      setForm({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "" });
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -160,7 +166,7 @@ export default function Expenses() {
                 <Label>Notes</Label>
                 <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
-              <Button type="submit" className="w-full">Save</Button>
+              <Button type="submit" className="w-full" disabled={submitting}>{submitting ? "Saving…" : "Save"}</Button>
             </form>
           </DialogContent>
         </Dialog>

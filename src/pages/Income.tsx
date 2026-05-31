@@ -23,24 +23,30 @@ export default function Income() {
   const { data: profiles = [] } = useProfiles();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), source: "Salary", amount: "", notes: "" });
+  const [submitting, setSubmitting] = useState(false);
 
   const totalMonthly = income.reduce((s, i) => s + Number(i.amount), 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-    const { error } = await supabase.from("income").insert({
-      user_id: user.id,
-      date: form.date,
-      source: form.source,
-      amount: parseFloat(form.amount),
-      notes: form.notes || null,
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success("Income added");
-    setOpen(false);
-    setForm({ date: new Date().toISOString().slice(0, 10), source: "Salary", amount: "", notes: "" });
-    queryClient.invalidateQueries({ queryKey: ["income"] });
+    if (!user || submitting) return;
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("income").insert({
+        user_id: user.id,
+        date: form.date,
+        source: form.source,
+        amount: parseFloat(form.amount),
+        notes: form.notes || null,
+      });
+      if (error) { toast.error(error.message); return; }
+      toast.success("Income added");
+      setOpen(false);
+      setForm({ date: new Date().toISOString().slice(0, 10), source: "Salary", amount: "", notes: "" });
+      queryClient.invalidateQueries({ queryKey: ["income"] });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -88,7 +94,7 @@ export default function Income() {
                 <Label>Notes</Label>
                 <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
-              <Button type="submit" className="w-full">Save</Button>
+              <Button type="submit" className="w-full" disabled={submitting}>{submitting ? "Saving…" : "Save"}</Button>
             </form>
           </DialogContent>
         </Dialog>

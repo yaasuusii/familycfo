@@ -42,6 +42,7 @@ export default function Budgets() {
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ category: "", monthly_limit: "" });
+  const [submitting, setSubmitting] = useState(false);
 
   const isAdmin = role === "admin";
 
@@ -69,26 +70,32 @@ export default function Budgets() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editId) {
-      const { error } = await supabase.from("budgets").update({
-        monthly_limit: parseFloat(form.monthly_limit),
-      }).eq("id", editId);
-      if (error) { toast.error(error.message); return; }
-      toast.success("Budget updated");
-    } else {
-      const { error } = await supabase.from("budgets").insert({
-        category: form.category,
-        monthly_limit: parseFloat(form.monthly_limit),
-        month: selMonth,
-        year: selYear,
-      });
-      if (error) { toast.error(error.message); return; }
-      toast.success("Budget set");
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      if (editId) {
+        const { error } = await supabase.from("budgets").update({
+          monthly_limit: parseFloat(form.monthly_limit),
+        }).eq("id", editId);
+        if (error) { toast.error(error.message); return; }
+        toast.success("Budget updated");
+      } else {
+        const { error } = await supabase.from("budgets").insert({
+          category: form.category,
+          monthly_limit: parseFloat(form.monthly_limit),
+          month: selMonth,
+          year: selYear,
+        });
+        if (error) { toast.error(error.message); return; }
+        toast.success("Budget set");
+      }
+      setOpen(false);
+      setEditId(null);
+      setForm({ category: "", monthly_limit: "" });
+      queryClient.invalidateQueries({ queryKey: ["budgets", selMonth, selYear] });
+    } finally {
+      setSubmitting(false);
     }
-    setOpen(false);
-    setEditId(null);
-    setForm({ category: "", monthly_limit: "" });
-    queryClient.invalidateQueries({ queryKey: ["budgets", selMonth, selYear] });
   };
 
   const handleEdit = (b: typeof budgetStats[0]) => {
@@ -156,7 +163,7 @@ export default function Budgets() {
                     <Label>Monthly Limit (ETB)</Label>
                     <Input type="number" step="0.01" min="0.01" value={form.monthly_limit} onChange={(e) => setForm({ ...form, monthly_limit: e.target.value })} required />
                   </div>
-                  <Button type="submit" className="w-full">{editId ? "Update" : "Save"}</Button>
+                  <Button type="submit" className="w-full" disabled={submitting}>{submitting ? "Saving…" : editId ? "Update" : "Save"}</Button>
                 </form>
               </DialogContent>
             </Dialog>
