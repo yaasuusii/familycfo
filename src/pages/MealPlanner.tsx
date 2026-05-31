@@ -24,6 +24,7 @@ import {
   MEAL_TYPES, DAYS, NUTRIENTS, type MealType, type Nutrient,
 } from "@/hooks/useMealData";
 import { formatETB } from "@/lib/format";
+import { useMarketPrices, lookupPrice } from "@/hooks/useMarketPrices";
 
 const TRIMESTER_TIPS: Record<number, string> = {
   1: "Focus on folate-rich foods (lentils, greens) and small frequent meals to manage nausea.",
@@ -159,6 +160,7 @@ export default function MealPlanner() {
   const { data: waterData } = useWaterIntake(today);
   const upsertWater = useUpsertWater();
 
+  const { data: marketPrices = [] } = useMarketPrices();
   const [showTwoWeeks, setShowTwoWeeks] = useState(false);
   const nextWeekStart = useMemo(() => {
     const d = new Date(weekStart);
@@ -332,6 +334,50 @@ export default function MealPlanner() {
     const allMeals = showTwoWeeks ? [...meals, ...nextMeals] : meals;
     return allMeals.reduce((s: number, m: any) => s + Number(m.estimated_cost || 0), 0);
   }, [meals, nextMeals, showTwoWeeks]);
+
+  // Calculate market-price-based costs for each grocery item
+  const groceryWithPrices = useMemo(() => {
+    if (marketPrices.length === 0) return groceryList.map(item => ({ ...item, marketCost: null as number | null }));
+    return groceryList.map(item => {
+      const match = lookupPrice(item.name, marketPrices);
+      if (!match) return { ...item, marketCost: null as number | null };
+      // Find the quantity in kg or pcs to compute cost
+      let totalCost = 0;
+      for (const q of item.quantities) {
+        if (match.unit === "kg") {
+          if (q.unit === "kg") totalCost += q.qty * match.price;
+          else if (q.unit === "g") totalCost += (q.qty / 1000) * match.price;
+          else totalCost += q.qty * match.price; // fallback: treat as kg
+        } else if (match.unit === "pcs") {
+          if (q.unit === "pcs") totalCost += q.qty * match.price;
+          else totalCost += q.qty * match.price; // fallback
+        } else {
+          totalCost += q.qty * match.price;
+        }
+      }
+      return { ...item, marketCost: Math.round(totalCost) };
+    });
+  }, [groceryList, marketPrices]);
+
+  const totalMarketCost = useMemo(() => {
+    return groceryWithPrices.reduce((s, item) => s + (item.marketCost || 0), 0);
+  }, [groceryWithPrices]);
+
+  const groceryByCategoryWithPrices = useMemo(() => {
+    const grouped = new Map<string, typeof groceryWithPrices>();
+    for (const item of groceryWithPrices) {
+      if (!grouped.has(item.category)) grouped.set(item.category, []);
+      grouped.get(item.category)!.push(item);
+    }
+    const order = ["Protein", "Produce", "Dairy", "Grains & Bread", "Spices & Oils", "Pantry & Legumes", "Other"];
+    return order
+      .filter(cat => grouped.has(cat))
+      .map(cat => {
+        const items = grouped.get(cat)!;
+        const catCost = items.reduce((s, i) => s + (i.marketCost || 0), 0);
+        return { category: cat, emoji: getCategoryEmoji(cat), items, catCost };
+      });
+  }, [groceryWithPrices]);
 
   return (
     <div className="space-y-6">
@@ -514,9 +560,11 @@ export default function MealPlanner() {
                   <span className="text-sm text-muted-foreground">
                     {checkedItems.size}/{groceryList.length} items
                   </span>
-                  {totalEstimatedCost > 0 && (
+                  {totalMarketCost > 0 ? (
+                    <Badge variant="default" className="bg-green-600">Market: {formatETB(totalMarketCost)}</Badge>
+                  ) : totalEstimatedCost > 0 ? (
                     <Badge variant="outline">Est. {formatETB(totalEstimatedCost)}</Badge>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
@@ -527,7 +575,7 @@ export default function MealPlanner() {
                 />
               </div>
 
-              {groceryByCategory.map(({ category, emoji, items }) => {
+              {groceryByCategoryWithPrices.map(({ category, emoji, items, catCost }) => {
                 const doneCount = items.filter(i => checkedItems.has(i.name)).length;
                 return (
                   <Card key={category}>
@@ -537,7 +585,12 @@ export default function MealPlanner() {
                           <span>{emoji}</span> {category}
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{items.length}</Badge>
                         </CardTitle>
-                        <span className="text-xs text-muted-foreground">{doneCount}/{items.length}</span>
+                        <div className="flex items-center gap-2">
+                          {catCost > 0 && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0">{formatETB(catCost)}</Badge>
+                          )}
+                          <span className="text-xs text-muted-foreground">{doneCount}/{items.length}</span>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent className="p-0">
@@ -558,12 +611,16 @@ export default function MealPlanner() {
                                 {item.name}
                               </span>
                               <span className="text-sm text-muted-foreground tabular-nums">
-                                {item.quantities.map((q, qi) => {
+                                {item.quantities.map((q) => {
                                   const val = q.qty % 1 === 0 ? q.qty : q.qty.toFixed(1);
                                   return `${val} ${q.unit}`;
                                 }).join(", ")}
                               </span>
-                              <span className="text-xs text-muted-foreground w-8 text-right">{item.mealCount}x</span>
+                              {item.marketCost != null && item.marketCost > 0 ? (
+                                <span className="text-xs font-medium text-green-600 w-16 text-right">{formatETB(item.marketCost)}</span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground w-16 text-right">{item.mealCount}x</span>
+                              )}
                             </button>
                           );
                         })}
