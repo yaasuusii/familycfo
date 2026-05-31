@@ -115,7 +115,7 @@ function getShoppingName(ingredientName: string): string {
 }
 
 function normalizeUnit(qty: number, unit: string): { qty: number; unit: string } {
-  const u = unit.toLowerCase().trim();
+  const u = unit.toLowerCase().trim().replace(/s$/, ""); // strip trailing 's' (cups→cup, tbsps→tbsp)
   // Weight → grams
   if (u === "kg") return { qty: qty * 1000, unit: "g" };
   // Volume → ml
@@ -124,8 +124,8 @@ function normalizeUnit(qty: number, unit: string): { qty: number; unit: string }
   if (u === "tbsp") return { qty: qty * 15, unit: "ml" };
   if (u === "tsp") return { qty: qty * 5, unit: "ml" };
   // Count
-  if (u === "piece" || u === "pieces" || u === "pc") return { qty, unit: "pcs" };
-  if (u === "clove" || u === "cloves") return { qty, unit: "pcs" };
+  if (u === "piece" || u === "pc" || u === "pcs" || u === "pc") return { qty, unit: "pcs" };
+  if (u === "clove") return { qty, unit: "pcs" };
   return { qty, unit: u };
 }
 
@@ -270,18 +270,20 @@ export default function MealPlanner() {
 
   const groceryList = useMemo(() => {
     const allMeals = showTwoWeeks ? [...meals, ...nextMeals] : meals;
-    const map = new Map<string, { name: string; qty: number; unit: string; mealCount: number; category: string }>();
+
+    // Pass 1: aggregate by shopping name + unit
+    const byUnit = new Map<string, { name: string; qty: number; unit: string; mealCount: number; category: string }>();
     allMeals.forEach((m: any) => {
       m.meal_ingredients?.forEach((ing: any) => {
         const shoppingName = getShoppingName(ing.name);
         const norm = normalizeUnit(Number(ing.quantity || 0), ing.unit || "");
         const key = `${shoppingName.toLowerCase()}_${norm.unit}`;
-        const existing = map.get(key);
+        const existing = byUnit.get(key);
         if (existing) {
           existing.qty += norm.qty;
           existing.mealCount += 1;
         } else {
-          map.set(key, {
+          byUnit.set(key, {
             name: shoppingName,
             qty: norm.qty,
             unit: norm.unit,
@@ -291,12 +293,27 @@ export default function MealPlanner() {
         }
       });
     });
-    return Array.from(map.values())
-      .map(item => {
-        const d = displayUnit(item.qty, item.unit);
-        return { ...item, qty: d.qty, unit: d.unit };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
+
+    // Pass 2: merge same-name items with different units into one entry
+    const merged = new Map<string, { name: string; quantities: { qty: number; unit: string }[]; mealCount: number; category: string }>();
+    for (const item of byUnit.values()) {
+      const key = item.name.toLowerCase();
+      const d = displayUnit(item.qty, item.unit);
+      const existing = merged.get(key);
+      if (existing) {
+        existing.quantities.push({ qty: d.qty, unit: d.unit });
+        existing.mealCount += item.mealCount;
+      } else {
+        merged.set(key, {
+          name: item.name,
+          quantities: [{ qty: d.qty, unit: d.unit }],
+          mealCount: item.mealCount,
+          category: item.category,
+        });
+      }
+    }
+
+    return Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [meals, nextMeals, showTwoWeeks]);
 
   const groceryByCategory = useMemo(() => {
@@ -511,7 +528,7 @@ export default function MealPlanner() {
               </div>
 
               {groceryByCategory.map(({ category, emoji, items }) => {
-                const doneCount = items.filter(i => checkedItems.has(`${i.name}_${i.unit}`)).length;
+                const doneCount = items.filter(i => checkedItems.has(i.name)).length;
                 return (
                   <Card key={category}>
                     <CardHeader className="py-3 px-4">
@@ -526,7 +543,7 @@ export default function MealPlanner() {
                     <CardContent className="p-0">
                       <div className="divide-y">
                         {items.map((item, i) => {
-                          const itemKey = `${item.name}_${item.unit}`;
+                          const itemKey = item.name;
                           const isChecked = checkedItems.has(itemKey);
                           return (
                             <button
@@ -541,7 +558,10 @@ export default function MealPlanner() {
                                 {item.name}
                               </span>
                               <span className="text-sm text-muted-foreground tabular-nums">
-                                {item.qty % 1 === 0 ? item.qty : item.qty.toFixed(2)} {item.unit}
+                                {item.quantities.map((q, qi) => {
+                                  const val = q.qty % 1 === 0 ? q.qty : q.qty.toFixed(1);
+                                  return `${val} ${q.unit}`;
+                                }).join(", ")}
                               </span>
                               <span className="text-xs text-muted-foreground w-8 text-right">{item.mealCount}x</span>
                             </button>
