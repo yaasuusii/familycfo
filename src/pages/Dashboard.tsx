@@ -1,13 +1,16 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useIncome, useExpenses, useBudgets, getCurrentMonth } from "@/hooks/useFinanceData";
 import { useLoans } from "@/hooks/useLoanData";
 import { useUpcomingRecurring } from "@/hooks/useRecurringData";
+import { useMealPlan, useMeals, usePregnancyProfile, getTrimester, getWeekStart, MEAL_TYPES, NUTRIENTS } from "@/hooks/useMealData";
 import { formatETB, formatPercent } from "@/lib/format";
 import { getCurrentEthiopianMonth, getEthiopianMonthName, getEthiopianDaysInMonth, toEthiopian } from "@/lib/ethiopian-calendar";
-import { TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target, ShieldAlert, AlertTriangle, Landmark, HandCoins, Scale, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target, ShieldAlert, AlertTriangle, Landmark, HandCoins, Scale, RefreshCw, UtensilsCrossed, Baby, ChevronRight, Droplets } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, BarChart, Bar, Legend } from "recharts";
 
 const COLORS = ["hsl(220,70%,50%)", "hsl(142,71%,45%)", "hsl(38,92%,50%)", "hsl(280,65%,60%)", "hsl(0,72%,51%)", "hsl(190,80%,45%)", "hsl(330,65%,55%)"];
@@ -33,6 +36,22 @@ export default function Dashboard() {
   const { data: budgets = [] } = useBudgets(eth.month, eth.year);
   const { data: allLoans = [] } = useLoans();
   const upcomingItems = useUpcomingRecurring();
+
+  // Meal planner data
+  const today = new Date().toISOString().slice(0, 10);
+  const weekStart = getWeekStart(new Date());
+  const { data: mealPlan } = useMealPlan(weekStart);
+  const { data: allMeals = [] } = useMeals(mealPlan?.id);
+  const { data: pregnancyProfile } = usePregnancyProfile();
+  const trimesterInfo = pregnancyProfile?.due_date ? getTrimester(pregnancyProfile.due_date) : null;
+
+  const todayDow = (new Date().getDay() + 6) % 7; // 0=Mon
+  const todayMeals = useMemo(() => allMeals.filter((m: any) => m.day_of_week === todayDow), [allMeals, todayDow]);
+  const todayNutrients = useMemo(() => {
+    const covered = new Set<string>();
+    todayMeals.forEach((m: any) => m.meal_nutrition?.forEach((n: any) => covered.add(n.nutrient)));
+    return covered;
+  }, [todayMeals]);
 
   const activeLoans = useMemo(() => allLoans.filter((l) => l.status === "active"), [allLoans]);
   const activeTaken = useMemo(() => activeLoans.filter((l) => l.loan_type === "taken"), [activeLoans]);
@@ -233,6 +252,91 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       )}
+
+      {/* Today's Meals Card */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <UtensilsCrossed className="h-4 w-4" /> Today's Meals
+              </CardTitle>
+              <Link to="/meal-planner" className="text-xs text-primary hover:underline flex items-center gap-0.5">
+                Open Planner <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+            {trimesterInfo && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                <Baby className="h-3 w-3 text-pink-500" />
+                Trimester {trimesterInfo.trimester} · Week {trimesterInfo.weeksPregnant}
+              </p>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {todayMeals.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">No meals planned for today. <Link to="/meal-planner" className="text-primary hover:underline">Plan now</Link></p>
+            ) : (
+              <div className="space-y-1.5">
+                {MEAL_TYPES.map((slot) => {
+                  const meal = todayMeals.find((m: any) => m.meal_type === slot.key);
+                  return (
+                    <div key={slot.key} className="flex items-center justify-between text-sm py-1 border-b last:border-0">
+                      <span className="text-muted-foreground w-16 text-xs uppercase">{slot.short}</span>
+                      <span className={`flex-1 ${meal ? "font-medium" : "text-muted-foreground italic"}`}>
+                        {meal ? meal.name : "—"}
+                      </span>
+                      {meal?.estimated_cost && (
+                        <span className="text-xs text-muted-foreground">{formatETB(Number(meal.estimated_cost))}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {todayMeals.length > 0 && (
+              <div className="flex flex-wrap gap-1 pt-1">
+                {NUTRIENTS.map((n) => (
+                  <Badge
+                    key={n.key}
+                    variant={todayNutrients.has(n.key) ? "default" : "outline"}
+                    className={`text-[10px] px-1.5 py-0 ${todayNutrients.has(n.key) ? "bg-green-600" : "opacity-40"}`}
+                  >
+                    {n.emoji} {n.label}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Meal Week Overview */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">This Week's Plan</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {allMeals.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-2">No meal plan for this week. <Link to="/meal-planner" className="text-primary hover:underline">Generate one</Link></p>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Meals planned</span>
+                  <span className="font-medium">{allMeals.length}/35</span>
+                </div>
+                <Progress value={(allMeals.length / 35) * 100} className="h-2" />
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Est. weekly cost</span>
+                  <span className="font-medium">{formatETB(allMeals.reduce((s: number, m: any) => s + Number(m.estimated_cost || 0), 0))}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Nutrition coverage today</span>
+                  <span className="font-medium">{todayNutrients.size}/{NUTRIENTS.length} nutrients</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Charts row */}
       <div className="grid gap-4 lg:grid-cols-2">
