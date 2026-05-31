@@ -24,7 +24,11 @@ import {
   MEAL_TYPES, DAYS, NUTRIENTS, type MealType, type Nutrient,
 } from "@/hooks/useMealData";
 import { formatETB } from "@/lib/format";
-import { useMarketPrices, lookupPrice } from "@/hooks/useMarketPrices";
+import { useMarketPrices } from "@/hooks/useMarketPrices";
+import {
+  GROCERY_CATEGORIES, getCategoryEmoji,
+  aggregateGroceryList, addMarketCosts, groupByCategory,
+} from "@/lib/grocery";
 
 const TRIMESTER_TIPS: Record<number, string> = {
   1: "Focus on folate-rich foods (lentils, greens) and small frequent meals to manage nausea.",
@@ -40,102 +44,7 @@ const MEAL_SLOT_COLORS: Record<MealType, string> = {
   dinner: "border-l-purple-400",
 };
 
-const GROCERY_CATEGORIES = [
-  { label: "Protein", emoji: "\u{1F969}", keywords: ["chicken", "beef", "lamb", "fish", "tilapia", "salmon", "shrimp", "egg", "tuna", "turkey", "meatball", "mince", "ground meat", "steak", "cod"] },
-  { label: "Produce", emoji: "\u{1F96C}", keywords: ["onion", "tomato", "garlic", "ginger", "carrot", "potato", "lettuce", "spinach", "kale", "avocado", "lemon", "lime", "orange", "banana", "apple", "mango", "papaya", "watermelon", "pepper", "cucumber", "broccoli", "asparagus", "zucchini", "mushroom", "corn", "cabbage", "celery", "pea", "beetroot", "sweet potato", "berry", "berries", "grape", "guava", "pineapple", "strawberry", "blueberry", "date", "fig", "peach", "pear", "mixed greens", "green"] },
-  { label: "Dairy", emoji: "\u{1F9C0}", keywords: ["milk", "cheese", "yogurt", "butter", "cream", "ayib", "curd", "sour cream"] },
-  { label: "Grains & Bread", emoji: "\u{1F33E}", keywords: ["bread", "toast", "injera", "pasta", "rice", "flour", "oat", "barley", "teff", "wheat", "tortilla", "noodle", "granola", "cereal", "kollo", "spaghetti", "penne", "macaroni", "kinche", "pancake", "cracker", "pita", "dough"] },
-  { label: "Spices & Oils", emoji: "\u{1F9C2}", keywords: ["berbere", "salt", "cumin", "turmeric", "cinnamon", "oregano", "basil", "oil", "olive", "vinegar", "soy sauce", "mustard", "mitmita", "cardamom", "clove", "rosemary", "thyme", "paprika", "chili", "dressing", "vinaigrette", "sauce", "ketchup", "mayo", "mayonnaise", "syrup"] },
-  { label: "Pantry & Legumes", emoji: "\u{1FAD8}", keywords: ["lentil", "chickpea", "bean", "split pea", "shiro", "peanut", "almond", "nut", "walnut", "cashew", "sesame", "sunflower", "canned", "paste", "broth", "stock", "honey", "sugar", "jam", "tea", "coffee", "hummus", "fava"] },
-];
-
-function categorizeIngredient(name: string): string {
-  const lower = name.toLowerCase();
-  for (const cat of GROCERY_CATEGORIES) {
-    if (cat.keywords.some(kw => lower.includes(kw))) return cat.label;
-  }
-  return "Other";
-}
-
-function getCategoryEmoji(label: string): string {
-  return GROCERY_CATEGORIES.find(c => c.label === label)?.emoji ?? "\u{1F4E6}";
-}
-
-const SHOPPING_GROUPS: { name: string; match: RegExp; exclude: RegExp }[] = [
-  // Proteins
-  { name: "Beef", match: /\bbeef\b/i, exclude: /broth|stock/i },
-  { name: "Chicken", match: /\bchicken\b/i, exclude: /broth|stock|noodle/i },
-  { name: "Lamb", match: /\blamb\b/i, exclude: /broth|stock/i },
-  { name: "Eggs", match: /\beggs?\b/i, exclude: /noodle|plant/i },
-  { name: "Salmon", match: /\bsalmon\b/i, exclude: /^$/i },
-  { name: "Tilapia", match: /\btilapia\b/i, exclude: /^$/i },
-  { name: "Tuna", match: /\btuna\b/i, exclude: /^$/i },
-  { name: "Cod", match: /\bcod\b/i, exclude: /^$/i },
-  { name: "Fish", match: /\bfish\b/i, exclude: /sauce/i },
-  // Produce
-  { name: "Onion", match: /\bonions?\b/i, exclude: /powder|ring/i },
-  { name: "Tomato", match: /\btomato(es)?\b/i, exclude: /paste|sauce|puree|ketchup/i },
-  { name: "Garlic", match: /\bgarlic\b/i, exclude: /powder|bread/i },
-  { name: "Carrot", match: /\bcarrots?\b/i, exclude: /cake/i },
-  { name: "Sweet Potato", match: /\bsweet potato(es)?\b/i, exclude: /^$/i },
-  { name: "Potato", match: /\bpotat(o|oes)\b/i, exclude: /chip|crisp|sweet/i },
-  { name: "Bell Pepper", match: /\b(bell )?peppers?\b/i, exclude: /black|white|cayenne|chili|spice/i },
-  { name: "Spinach", match: /\bspinach\b/i, exclude: /^$/i },
-  { name: "Lettuce", match: /\blettuce\b/i, exclude: /^$/i },
-  { name: "Mixed Greens", match: /\bmixed greens\b/i, exclude: /^$/i },
-  { name: "Cabbage", match: /\bcabbage\b/i, exclude: /^$/i },
-  { name: "Berries", match: /\b(berries|blueberr|strawberr|mixed berr)/i, exclude: /^$/i },
-  { name: "Banana", match: /\bbananas?\b/i, exclude: /^$/i },
-  { name: "Avocado", match: /\bavocados?\b/i, exclude: /^$/i },
-  { name: "Mango", match: /\bmango(es|s)?\b/i, exclude: /chutney/i },
-  { name: "Lemon", match: /\blemons?\b/i, exclude: /grass/i },
-  { name: "Orange", match: /\boranges?\b/i, exclude: /juice/i },
-  // Dairy
-  { name: "Yogurt", match: /\byogurt\b/i, exclude: /^$/i },
-  { name: "Milk", match: /\bmilk\b/i, exclude: /coconut/i },
-  { name: "Cheese", match: /\bcheese\b/i, exclude: /cake/i },
-  { name: "Butter", match: /\bbutter\b/i, exclude: /peanut|almond|nut/i },
-  { name: "Cream", match: /\bcream\b/i, exclude: /ice/i },
-  // Grains
-  { name: "Rice", match: /\brice\b/i, exclude: /cake|paper|vinegar|wine/i },
-  { name: "Pasta", match: /\b(pasta|spaghetti|penne|macaroni|fusilli|linguine|noodle)/i, exclude: /sauce/i },
-  { name: "Bread", match: /\b(bread|toast)\b/i, exclude: /^$/i },
-  { name: "Flour", match: /\bflour\b/i, exclude: /flower/i },
-  { name: "Oats", match: /\boats?\b/i, exclude: /^$/i },
-  // Oils
-  { name: "Olive Oil", match: /\bolive oil\b/i, exclude: /^$/i },
-];
-
-function getShoppingName(ingredientName: string): string {
-  const name = ingredientName.toLowerCase();
-  for (const group of SHOPPING_GROUPS) {
-    if (group.match.test(name) && !group.exclude.test(name)) return group.name;
-  }
-  // Capitalize first letter for unmatched items
-  return ingredientName.charAt(0).toUpperCase() + ingredientName.slice(1).toLowerCase();
-}
-
-function normalizeUnit(qty: number, unit: string): { qty: number; unit: string } {
-  const u = unit.toLowerCase().trim().replace(/s$/, ""); // strip trailing 's' (cups→cup, tbsps→tbsp)
-  // Weight → grams
-  if (u === "kg") return { qty: qty * 1000, unit: "g" };
-  // Volume → ml
-  if (u === "l" || u === "liter" || u === "litre") return { qty: qty * 1000, unit: "ml" };
-  if (u === "cup") return { qty: qty * 240, unit: "ml" };
-  if (u === "tbsp") return { qty: qty * 15, unit: "ml" };
-  if (u === "tsp") return { qty: qty * 5, unit: "ml" };
-  // Count
-  if (u === "piece" || u === "pc" || u === "pcs" || u === "pc") return { qty, unit: "pcs" };
-  if (u === "clove") return { qty, unit: "pcs" };
-  return { qty, unit: u };
-}
-
-function displayUnit(qty: number, unit: string): { qty: number; unit: string } {
-  if (unit === "g" && qty >= 1000) return { qty: +(qty / 1000).toFixed(2), unit: "kg" };
-  if (unit === "ml" && qty >= 1000) return { qty: +(qty / 1000).toFixed(1), unit: "L" };
-  if (unit === "ml") return { qty: Math.round(qty), unit: "ml" };
-  return { qty, unit };
-}
+// Grocery aggregation logic is in @/lib/grocery
 
 export default function MealPlanner() {
   const [weekOffset, setWeekOffset] = useState(0);
@@ -270,114 +179,35 @@ export default function MealPlanner() {
   const waterGlasses = waterData?.glasses ?? 0;
   const waterGoal = waterData?.goal ?? 10;
 
-  const groceryList = useMemo(() => {
-    const allMeals = showTwoWeeks ? [...meals, ...nextMeals] : meals;
+  const allMealsForGrocery = useMemo(
+    () => showTwoWeeks ? [...meals, ...nextMeals] : meals,
+    [meals, nextMeals, showTwoWeeks]
+  );
 
-    // Pass 1: aggregate by shopping name + unit
-    const byUnit = new Map<string, { name: string; qty: number; unit: string; mealCount: number; category: string }>();
-    allMeals.forEach((m: any) => {
-      m.meal_ingredients?.forEach((ing: any) => {
-        const shoppingName = getShoppingName(ing.name);
-        const norm = normalizeUnit(Number(ing.quantity || 0), ing.unit || "");
-        const key = `${shoppingName.toLowerCase()}_${norm.unit}`;
-        const existing = byUnit.get(key);
-        if (existing) {
-          existing.qty += norm.qty;
-          existing.mealCount += 1;
-        } else {
-          byUnit.set(key, {
-            name: shoppingName,
-            qty: norm.qty,
-            unit: norm.unit,
-            mealCount: 1,
-            category: categorizeIngredient(shoppingName),
-          });
-        }
-      });
-    });
+  const groceryList = useMemo(
+    () => aggregateGroceryList(allMealsForGrocery),
+    [allMealsForGrocery]
+  );
 
-    // Pass 2: merge same-name items with different units into one entry
-    const merged = new Map<string, { name: string; quantities: { qty: number; unit: string }[]; mealCount: number; category: string }>();
-    for (const item of byUnit.values()) {
-      const key = item.name.toLowerCase();
-      const d = displayUnit(item.qty, item.unit);
-      const existing = merged.get(key);
-      if (existing) {
-        existing.quantities.push({ qty: d.qty, unit: d.unit });
-        existing.mealCount += item.mealCount;
-      } else {
-        merged.set(key, {
-          name: item.name,
-          quantities: [{ qty: d.qty, unit: d.unit }],
-          mealCount: item.mealCount,
-          category: item.category,
-        });
-      }
-    }
+  const groceryWithPrices = useMemo(
+    () => addMarketCosts(groceryList, marketPrices),
+    [groceryList, marketPrices]
+  );
 
-    return Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [meals, nextMeals, showTwoWeeks]);
+  const totalMarketCost = useMemo(
+    () => groceryWithPrices.reduce((s, item) => s + (item.marketCost || 0), 0),
+    [groceryWithPrices]
+  );
 
-  const groceryByCategory = useMemo(() => {
-    const grouped = new Map<string, typeof groceryList>();
-    for (const item of groceryList) {
-      if (!grouped.has(item.category)) grouped.set(item.category, []);
-      grouped.get(item.category)!.push(item);
-    }
-    const order = ["Protein", "Produce", "Dairy", "Grains & Bread", "Spices & Oils", "Pantry & Legumes", "Other"];
-    return order
-      .filter(cat => grouped.has(cat))
-      .map(cat => ({ category: cat, emoji: getCategoryEmoji(cat), items: grouped.get(cat)! }));
-  }, [groceryList]);
+  const totalEstimatedCost = useMemo(
+    () => allMealsForGrocery.reduce((s: number, m: any) => s + Number(m.estimated_cost || 0), 0),
+    [allMealsForGrocery]
+  );
 
-  const totalEstimatedCost = useMemo(() => {
-    const allMeals = showTwoWeeks ? [...meals, ...nextMeals] : meals;
-    return allMeals.reduce((s: number, m: any) => s + Number(m.estimated_cost || 0), 0);
-  }, [meals, nextMeals, showTwoWeeks]);
-
-  // Calculate market-price-based costs for each grocery item
-  const groceryWithPrices = useMemo(() => {
-    if (marketPrices.length === 0) return groceryList.map(item => ({ ...item, marketCost: null as number | null }));
-    return groceryList.map(item => {
-      const match = lookupPrice(item.name, marketPrices);
-      if (!match) return { ...item, marketCost: null as number | null };
-      // Find the quantity in kg or pcs to compute cost
-      let totalCost = 0;
-      for (const q of item.quantities) {
-        if (match.unit === "kg") {
-          if (q.unit === "kg") totalCost += q.qty * match.price;
-          else if (q.unit === "g") totalCost += (q.qty / 1000) * match.price;
-          else totalCost += q.qty * match.price; // fallback: treat as kg
-        } else if (match.unit === "pcs") {
-          if (q.unit === "pcs") totalCost += q.qty * match.price;
-          else totalCost += q.qty * match.price; // fallback
-        } else {
-          totalCost += q.qty * match.price;
-        }
-      }
-      return { ...item, marketCost: Math.round(totalCost) };
-    });
-  }, [groceryList, marketPrices]);
-
-  const totalMarketCost = useMemo(() => {
-    return groceryWithPrices.reduce((s, item) => s + (item.marketCost || 0), 0);
-  }, [groceryWithPrices]);
-
-  const groceryByCategoryWithPrices = useMemo(() => {
-    const grouped = new Map<string, typeof groceryWithPrices>();
-    for (const item of groceryWithPrices) {
-      if (!grouped.has(item.category)) grouped.set(item.category, []);
-      grouped.get(item.category)!.push(item);
-    }
-    const order = ["Protein", "Produce", "Dairy", "Grains & Bread", "Spices & Oils", "Pantry & Legumes", "Other"];
-    return order
-      .filter(cat => grouped.has(cat))
-      .map(cat => {
-        const items = grouped.get(cat)!;
-        const catCost = items.reduce((s, i) => s + (i.marketCost || 0), 0);
-        return { category: cat, emoji: getCategoryEmoji(cat), items, catCost };
-      });
-  }, [groceryWithPrices]);
+  const groceryByCategoryWithPrices = useMemo(
+    () => groupByCategory(groceryWithPrices),
+    [groceryWithPrices]
+  );
 
   return (
     <div className="space-y-6">

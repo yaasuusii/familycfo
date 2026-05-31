@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useExpenses, getCurrentMonth } from "@/hooks/useFinanceData";
 import { useMealPlan, useMeals, getWeekStart } from "@/hooks/useMealData";
 import { useMarketPrices, useSaveMarketPrices, parsePriceList, type ParsedPrice } from "@/hooks/useMarketPrices";
+import { aggregateGroceryList, addMarketCosts } from "@/lib/grocery";
 import { formatETB, formatPercent } from "@/lib/format";
 import { ShoppingCart, TrendingDown, Percent, CalendarDays, UtensilsCrossed, ChevronRight, ClipboardPaste, Tag, Check } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
@@ -24,13 +25,24 @@ export default function GroceryTracker() {
   const { data: mealPlan } = useMealPlan(weekStart);
   const { data: meals = [] } = useMeals(mealPlan?.id);
 
-  const plannedWeeklyCost = useMemo(
+  const aiEstimatedCost = useMemo(
     () => meals.reduce((s: number, m: any) => s + Number(m.estimated_cost || 0), 0),
     [meals]
   );
 
   // Market prices
   const { data: marketPrices = [] } = useMarketPrices();
+
+  // Market-price-based weekly budget (accurate) — falls back to AI estimate
+  const marketWeeklyCost = useMemo(() => {
+    if (meals.length === 0 || marketPrices.length === 0) return 0;
+    const items = aggregateGroceryList(meals);
+    const withCosts = addMarketCosts(items, marketPrices);
+    return withCosts.reduce((s, i) => s + (i.marketCost || 0), 0);
+  }, [meals, marketPrices]);
+
+  const plannedWeeklyCost = marketWeeklyCost > 0 ? marketWeeklyCost : aiEstimatedCost;
+  const usingMarketPrices = marketWeeklyCost > 0;
   const saveMarketPrices = useSaveMarketPrices();
   const [showPasteDialog, setShowPasteDialog] = useState(false);
   const [showPricesDialog, setShowPricesDialog] = useState(false);
@@ -114,7 +126,7 @@ export default function GroceryTracker() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard title="Monthly Grocery" value={formatETB(totalGrocery)} icon={<ShoppingCart className="h-4 w-4 text-warning" />} />
         <StatCard title="Avg Weekly Spend" value={formatETB(avgWeekly)} icon={<CalendarDays className="h-4 w-4 text-primary" />} />
-        <StatCard title="Meal Plan Budget" value={formatETB(plannedWeeklyCost)} icon={<UtensilsCrossed className="h-4 w-4 text-success" />} />
+        <StatCard title={usingMarketPrices ? "Weekly Budget" : "Meal Plan Budget"} value={formatETB(plannedWeeklyCost)} icon={<UtensilsCrossed className="h-4 w-4 text-success" />} />
         <StatCard title="% of Expenses" value={formatPercent(groceryPercent)} icon={<Percent className="h-4 w-4 text-success" />} />
         <StatCard title="Transactions" value={String(groceryExpenses.length)} icon={<TrendingDown className="h-4 w-4 text-muted-foreground" />} />
       </div>
@@ -132,8 +144,17 @@ export default function GroceryTracker() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Meal plan estimate</span>
-              <span className="font-medium">{formatETB(plannedWeeklyCost)}</span>
+              <span className="text-muted-foreground">
+                {usingMarketPrices ? "Market price estimate" : "AI meal plan estimate"}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{formatETB(plannedWeeklyCost)}</span>
+                {usingMarketPrices && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-green-600 border-green-300">
+                    Market
+                  </Badge>
+                )}
+              </div>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Actual grocery spend</span>
@@ -145,7 +166,7 @@ export default function GroceryTracker() {
             />
             <p className="text-xs text-muted-foreground">
               {plannedWeeklyCost > 0
-                ? `${formatPercent((thisWeekGrocery / plannedWeeklyCost) * 100)} of meal plan budget used`
+                ? `${formatPercent((thisWeekGrocery / plannedWeeklyCost) * 100)} of weekly budget used`
                 : "No meal plan budget set"}
             </p>
           </CardContent>
