@@ -121,7 +121,11 @@ export default function Income() {
                   <TableCell>{i.source}</TableCell>
                   <TableCell className="font-medium">{formatETB(Number(i.amount))}</TableCell>
                   <TableCell>{getUserName(i.user_id)}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{i.notes}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {i.notes && /^https?:\/\//.test(i.notes) ? (
+                      <a href={i.notes} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View Receipt</a>
+                    ) : i.notes}
+                  </TableCell>
                   <TableCell>
                     {i.user_id === user?.id && (
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(i.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>

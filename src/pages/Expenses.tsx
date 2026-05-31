@@ -348,7 +348,11 @@ export default function Expenses() {
                   <TableCell className="font-medium">{formatETB(Number(e.amount))}</TableCell>
                   <TableCell><PaymentBadge method={e.payment_method} /></TableCell>
                   <TableCell>{getUserName(e.user_id)}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{e.notes}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {e.notes && /^https?:\/\//.test(e.notes) ? (
+                      <a href={e.notes} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View Receipt</a>
+                    ) : e.notes}
+                  </TableCell>
                   <TableCell>
                     {e.user_id === user?.id && (
                       <Button variant="ghost" size="icon" onClick={() => handleDelete(e.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
