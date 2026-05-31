@@ -195,7 +195,7 @@ export default function MealPlanner() {
   );
 
   const totalMarketCost = useMemo(
-    () => groceryWithPrices.reduce((s, item) => s + (item.marketCost || 0), 0),
+    () => groceryWithPrices.reduce((s, item) => s + (item.buyCost ?? item.marketCost ?? 0), 0),
     [groceryWithPrices]
   );
 
@@ -429,6 +429,7 @@ export default function MealPlanner() {
                         {items.map((item, i) => {
                           const itemKey = item.name;
                           const isChecked = checkedItems.has(itemKey);
+                          const fmt = (n: number) => (n % 1 === 0 ? String(n) : n.toFixed(1));
                           return (
                             <button
                               key={i}
@@ -441,14 +442,26 @@ export default function MealPlanner() {
                               <span className={`flex-1 text-sm capitalize ${isChecked ? "line-through text-muted-foreground" : "font-medium"}`}>
                                 {item.name}
                               </span>
-                              <span className="text-sm text-muted-foreground tabular-nums">
-                                {item.quantities.map((q) => {
-                                  const val = q.qty % 1 === 0 ? q.qty : q.qty.toFixed(1);
-                                  return `${val} ${q.unit}`;
-                                }).join(", ")}
-                              </span>
-                              {item.marketCost != null && item.marketCost > 0 ? (
-                                <span className="text-xs font-medium text-green-600 w-16 text-right">{formatETB(item.marketCost)}</span>
+                              <div className="flex flex-col items-end leading-tight">
+                                {item.buyQty != null ? (
+                                  <>
+                                    <span className="text-sm text-foreground tabular-nums">
+                                      Buy {fmt(item.buyQty)} {item.buyUnit}
+                                    </span>
+                                    {item.neededQty != null && (
+                                      <span className="text-[11px] text-muted-foreground/70 tabular-nums">
+                                        needs ~{fmt(item.neededQty)} {item.neededUnit}
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="text-sm text-muted-foreground tabular-nums">
+                                    {item.quantities.map((q) => `${fmt(q.qty)} ${q.unit}`).join(", ")}
+                                  </span>
+                                )}
+                              </div>
+                              {item.buyCost != null && item.buyCost > 0 ? (
+                                <span className="text-xs font-medium text-green-600 w-16 text-right">{formatETB(item.buyCost)}</span>
                               ) : (
                                 <span className="text-xs text-muted-foreground w-16 text-right">{item.mealCount}x</span>
                               )}

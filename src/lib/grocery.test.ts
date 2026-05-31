@@ -68,6 +68,59 @@ describe("addMarketCosts — realistic, not inflated", () => {
   });
 });
 
+describe("realistic buy quantities — round up to how you actually shop", () => {
+  const buy = (name: string, qty: number, unit: string) => {
+    const list = aggregateGroceryList([meal([{ name, quantity: qty, unit }])]);
+    return addMarketCosts(list, PRICES)[0];
+  };
+
+  it("banana 1.5 pcs → buy 1 kg (kg-priced), needs ~180 g, costs 106", () => {
+    const r = buy("banana", 1.5, "pcs"); // 1.5 × 120g = 180g → round up to 1 kg
+    expect(r.buyQty).toBe(1);
+    expect(r.buyUnit).toBe("kg");
+    expect(r.neededQty).toBe(180);
+    expect(r.neededUnit).toBe("g");
+    expect(r.buyCost).toBe(106); // 1 kg × 106/kg
+    expect(r.marketCost).toBe(19); // precise need stays accurate
+  });
+
+  it("broccoli 1 cup → buy 1 kg, needs ~90 g, costs 167", () => {
+    const r = buy("broccoli", 1, "cup");
+    expect(r.buyQty).toBe(1);
+    expect(r.buyUnit).toBe("kg");
+    expect(r.buyCost).toBe(167);
+  });
+
+  it("garlic (aromatic) 2 cloves → buy 100 g, not 1 kg", () => {
+    const r = buy("garlic", 2, "cloves"); // 6g → round up to 100g
+    expect(r.buyQty).toBe(100);
+    expect(r.buyUnit).toBe("g");
+    expect(r.buyCost).toBe(17); // 0.1 kg × 167/kg
+  });
+
+  it("apple 0.5 pcs (pcs-priced) → buy 1 pc, costs full piece", () => {
+    const r = buy("apple", 0.5, "pcs");
+    expect(r.buyQty).toBe(1);
+    expect(r.buyUnit).toBe("pcs");
+    expect(r.buyCost).toBe(1172);
+    expect(r.neededQty).toBe(0.5);
+  });
+
+  it("avocado 5 pcs → 1000g needed rounds to exactly 1 kg", () => {
+    const r = buy("avocado", 5, "pcs"); // 5 × 200g = 1000g
+    expect(r.buyQty).toBe(1);
+    expect(r.buyUnit).toBe("kg");
+    expect(r.buyCost).toBe(122);
+  });
+
+  it("no price match → all buy fields null", () => {
+    const r = buy("quinoa", 200, "g");
+    expect(r.buyCost).toBeNull();
+    expect(r.buyQty).toBeNull();
+    expect(r.neededQty).toBeNull();
+  });
+});
+
 describe("lookupPrice — no false matches", () => {
   it("does NOT match 'Mixed Greens' to 'Green Chili'", () => {
     const list = aggregateGroceryList([meal([{ name: "mixed greens", quantity: 100, unit: "g" }])]);

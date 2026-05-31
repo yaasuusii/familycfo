@@ -118,6 +118,35 @@ export function cupGrams(name: string): number {
   return tableLookup(name, GRAMS_PER_CUP) ?? 120;
 }
 
+// ── Realistic purchase quantities ──
+// You don't buy "1.5 bananas" or "6 g of garlic" — you buy in the chunks the
+// market actually sells. Round each item UP to a sensible minimum/increment so
+// the cost reflects what you'd really spend (surplus stays in the pantry).
+
+const AROMATIC_KEYWORDS = ["garlic", "ginger", "chili", "chilli", "chile"];
+const MEAT_FISH_KEYWORDS = [
+  "chicken", "beef", "lamb", "goat", "mutton", "turkey", "meatball", "mince",
+  "steak", "fish", "tilapia", "salmon", "tuna", "cod", "shrimp", "prawn",
+];
+
+/**
+ * Grams to round UP to for a weight-priced item:
+ *   aromatics (garlic, ginger, chili) → 100 g
+ *   meat & fish                       → 500 g (0.5 kg)
+ *   everything else (fruit & veg…)    → 1000 g (1 kg)
+ */
+export function buyIncrementGrams(name: string): number {
+  const lower = name.toLowerCase();
+  if (AROMATIC_KEYWORDS.some(k => lower.includes(k))) return 100;
+  if (MEAT_FISH_KEYWORDS.some(k => lower.includes(k))) return 500;
+  return 1000;
+}
+
+function roundUpTo(value: number, increment: number): number {
+  if (value <= 0) return increment;
+  return Math.ceil(value / increment) * increment;
+}
+
 /**
  * Normalize a raw ingredient quantity to a display base unit:
  *   solids → g, liquids → ml, countables → pcs
@@ -176,7 +205,12 @@ export type GroceryItem = {
 };
 
 export type GroceryItemWithCost = GroceryItem & {
-  marketCost: number | null;
+  marketCost: number | null;   // precise cost of exactly what the recipes need
+  buyCost: number | null;      // realistic cost of what you'd actually purchase
+  buyQty: number | null;       // purchase amount, rounded up to a realistic minimum
+  buyUnit: string | null;      // "kg" | "g" | "pcs"
+  neededQty: number | null;    // recipe requirement, displayed in the buyUnit family
+  neededUnit: string | null;
 };
 
 // ── Aggregation ──
@@ -259,41 +293,68 @@ function toPcs(name: string, qty: number, unit: string): number | null {
  *
  * Market prices are stored per kg or per pcs. We reconcile the grocery
  * quantity to the SAME unit the price uses (converting via weight-per-piece
- * estimates when needed). If ANY portion can't be reconciled, marketCost is
+ * estimates when needed). If ANY portion can't be reconciled, the costs are
  * null (the UI shows "—") rather than a misleading number.
+ *
+ * Two costs are produced per item:
+ *   - marketCost: the precise cost of exactly what the recipes consume
+ *   - buyCost:    the cost of the realistic purchase amount (rounded UP to how
+ *                 you actually shop — 1 kg of bananas, not 1.5 pieces)
  */
 export function addMarketCosts(
   items: GroceryItem[],
   marketPrices: MarketPrice[]
 ): GroceryItemWithCost[] {
+  const nullCost = (item: GroceryItem): GroceryItemWithCost => ({
+    ...item,
+    marketCost: null, buyCost: null,
+    buyQty: null, buyUnit: null, neededQty: null, neededUnit: null,
+  });
+
   if (marketPrices.length === 0) {
-    return items.map(item => ({ ...item, marketCost: null }));
+    return items.map(nullCost);
   }
   return items.map(item => {
     const match = lookupPrice(item.name, marketPrices);
-    if (!match) return { ...item, marketCost: null };
+    if (!match) return nullCost(item);
 
     if (match.unit === "kg") {
       let grams = 0;
       for (const q of item.quantities) {
         const g = toGrams(item.name, q.qty, q.unit);
-        if (g == null) return { ...item, marketCost: null };
+        if (g == null) return nullCost(item);
         grams += g;
       }
-      return { ...item, marketCost: Math.round((grams / 1000) * match.price) };
+      const buyGrams = roundUpTo(grams, buyIncrementGrams(item.name));
+      const buyD = displayUnit(buyGrams, "g");
+      const needD = displayUnit(Math.round(grams), "g");
+      return {
+        ...item,
+        marketCost: Math.round((grams / 1000) * match.price),
+        buyCost: Math.round((buyGrams / 1000) * match.price),
+        buyQty: buyD.qty, buyUnit: buyD.unit,
+        neededQty: needD.qty, neededUnit: needD.unit,
+      };
     }
 
     if (match.unit === "pcs") {
       let pcs = 0;
       for (const q of item.quantities) {
         const p = toPcs(item.name, q.qty, q.unit);
-        if (p == null) return { ...item, marketCost: null };
+        if (p == null) return nullCost(item);
         pcs += p;
       }
-      return { ...item, marketCost: Math.round(pcs * match.price) };
+      const buyPcs = Math.max(1, Math.ceil(pcs));
+      return {
+        ...item,
+        marketCost: Math.round(pcs * match.price),
+        buyCost: Math.round(buyPcs * match.price),
+        buyQty: buyPcs, buyUnit: "pcs",
+        neededQty: +pcs.toFixed(1), neededUnit: "pcs",
+      };
     }
 
-    return { ...item, marketCost: null };
+    return nullCost(item);
   });
 }
 
@@ -313,6 +374,7 @@ export function groupByCategory<T extends GroceryItem>(items: T[]) {
       category: cat,
       emoji: getCategoryEmoji(cat),
       items: grouped.get(cat)!,
-      catCost: grouped.get(cat)!.reduce((s, i) => s + ((i as any).marketCost || 0), 0),
+      catCost: grouped.get(cat)!.reduce(
+        (s, i) => s + ((i as any).buyCost ?? (i as any).marketCost ?? 0), 0),
     }));
 }

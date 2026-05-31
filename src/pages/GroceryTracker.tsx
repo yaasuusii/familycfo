@@ -38,7 +38,7 @@ export default function GroceryTracker() {
     if (meals.length === 0 || marketPrices.length === 0) return 0;
     const items = aggregateGroceryList(meals);
     const withCosts = addMarketCosts(items, marketPrices);
-    return withCosts.reduce((s, i) => s + (i.marketCost || 0), 0);
+    return withCosts.reduce((s, i) => s + (i.buyCost ?? i.marketCost ?? 0), 0);
   }, [meals, marketPrices]);
 
   const plannedWeeklyCost = marketWeeklyCost > 0 ? marketWeeklyCost : aiEstimatedCost;
