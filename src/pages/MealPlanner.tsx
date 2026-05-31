@@ -405,10 +405,11 @@ export default function MealPlanner() {
                 />
               </div>
 
+              <div className="columns-1 lg:columns-2 gap-4 [column-fill:_balance]">
               {groceryByCategoryWithPrices.map(({ category, emoji, items, catCost }) => {
                 const doneCount = items.filter(i => checkedItems.has(i.name)).length;
                 return (
-                  <Card key={category}>
+                  <Card key={category} className="break-inside-avoid mb-4">
                     <CardHeader className="py-3 px-4">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -459,6 +460,7 @@ export default function MealPlanner() {
                   </Card>
                 );
               })}
+              </div>
             </>
           )}
         </TabsContent>
