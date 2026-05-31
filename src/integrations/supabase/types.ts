@@ -292,6 +292,42 @@ export type Database = {
         }
         Relationships: []
       }
+      market_prices: {
+        Row: {
+          category: string | null
+          created_by: string | null
+          id: string
+          name: string
+          name_amharic: string | null
+          price: number
+          source: string | null
+          unit: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_by?: string | null
+          id?: string
+          name: string
+          name_amharic?: string | null
+          price: number
+          source?: string | null
+          unit?: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_by?: string | null
+          id?: string
+          name?: string
+          name_amharic?: string | null
+          price?: number
+          source?: string | null
+          unit?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       meal_ingredients: {
         Row: {
           created_at: string | null
