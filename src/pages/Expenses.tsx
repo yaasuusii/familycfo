@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, Trash2, X, ListFilter, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeftRight, Sparkles } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useCallback } from "react";
 
 const PAYMENT_METHODS = ["Cash", "CBE", "BOA", "127"] as const;
@@ -42,7 +43,7 @@ export default function Expenses() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const month = getCurrentMonth();
-  const { data: expenses = [] } = useExpenses(month);
+  const { data: expenses = [], isLoading: expensesLoading } = useExpenses(month);
   const { data: categories = [] } = useCategories();
   const { data: categoryRules = [] } = useCategoryRules();
   const { data: profiles = [] } = useProfiles();
@@ -233,15 +234,39 @@ export default function Expenses() {
 
   const getUserName = (uid: string) => profiles.find((p) => p.user_id === uid)?.name ?? "Unknown";
 
+  if (expensesLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="hidden h-10 w-32 md:block" />
+        </div>
+        <Card>
+          <CardContent className="space-y-2 p-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+                <Skeleton className="h-5 w-16" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Expenses</h2>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />Add Expense</Button>
+            <Button className="hidden md:inline-flex"><Plus className="mr-2 h-4 w-4" />Add Expense</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Add Expense</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -358,6 +383,39 @@ export default function Expenses() {
         </div>
       )}
 
+      {/* Mobile filter bar */}
+      <div className="grid grid-cols-2 gap-2 md:hidden">
+        <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <SelectTrigger className="h-10"><SelectValue placeholder="Category" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterPayment} onValueChange={setFilterPayment}>
+          <SelectTrigger className="h-10"><SelectValue placeholder="Account" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Accounts</SelectItem>
+            {PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterUser} onValueChange={setFilterUser}>
+          <SelectTrigger className="h-10"><SelectValue placeholder="Added by" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Users</SelectItem>
+            {profiles.map((p) => <SelectItem key={p.user_id} value={p.user_id}>{p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={sortAmount} onValueChange={(v) => setSortAmount(v as "none" | "asc" | "desc")}>
+          <SelectTrigger className="h-10"><SelectValue placeholder="Sort" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sort: Newest</SelectItem>
+            <SelectItem value="desc">Amount: High to Low</SelectItem>
+            <SelectItem value="asc">Amount: Low to High</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base space-y-2">
@@ -376,16 +434,71 @@ export default function Expenses() {
               </span>
             </div>
             {hasTransfers && (
-              <div className="flex items-center gap-2 text-sm font-normal">
-                <Switch checked={hideTransfers} onCheckedChange={setHideTransfers} className="scale-75" />
+              <label className="flex cursor-pointer items-center gap-2 py-1 text-sm font-normal">
+                <Switch checked={hideTransfers} onCheckedChange={setHideTransfers} />
                 <span className="text-muted-foreground">
                   Hide self-transfers ({formatETB(transferTotal)})
                 </span>
-              </div>
+              </label>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {/* Mobile card list */}
+          <div className="space-y-2 md:hidden">
+            {sorted.map((e) => (
+              <div
+                key={e.id}
+                className={`rounded-lg border p-3 ${e.is_self_transfer ? "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20" : "bg-card"}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    {e.user_id === user?.id ? (
+                      <Select value={e.category} onValueChange={(v) => handleCategoryChange(e.id, v)}>
+                        <SelectTrigger className="h-9 w-full max-w-[12rem] text-sm font-medium"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {categories.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className="text-sm font-medium">{e.category}</span>
+                    )}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <span>{e.date}</span>
+                      <PaymentBadge method={e.payment_method} />
+                      <span>· {getUserName(e.user_id)}</span>
+                      {e.is_self_transfer && (
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                          <ArrowLeftRight className="h-2.5 w-2.5" />Transfer
+                        </span>
+                      )}
+                    </div>
+                    {e.notes && (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {/^https?:\/\//.test(e.notes) ? (
+                          <a href={e.notes} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View Receipt</a>
+                        ) : <span className="line-clamp-2">{e.notes}</span>}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span className="font-semibold">{formatETB(Number(e.amount))}</span>
+                    {e.user_id === user?.id && (
+                      <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleDelete(e.id)} aria-label="Delete expense">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {filtered.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">No expenses found</p>
+            )}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -551,8 +664,19 @@ export default function Expenses() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Mobile floating action button */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Add expense"
+        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:hidden"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
     </div>
   );
 }

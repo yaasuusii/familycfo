@@ -34,7 +34,7 @@ export default function Forecasting() {
         <p className="text-sm text-muted-foreground">{ethMonthLabel}</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <ForecastCard title="Projected Monthly Expense" value={formatETB(projectedTotal)} subtitle={`Based on ${formatETB(dailyRate)}/day average`} icon={<TrendingDown className="h-5 w-5 text-destructive" />} />
         <ForecastCard title="Projected Balance" value={formatETB(adjustedProjectedBalance)} subtitle={adjustedProjectedBalance < 0 ? "⚠️ Projected deficit" : "Includes recurring transactions"} icon={<Wallet className="h-5 w-5 text-primary" />} danger={adjustedProjectedBalance < 0} />
         <ForecastCard title="Safe to Spend Daily" value={formatETB(safeToSpend)} subtitle={`${daysRemaining} days remaining`} icon={<Target className="h-5 w-5 text-success" />} />
@@ -74,9 +74,9 @@ export default function Forecasting() {
 function ForecastCard({ title, value, subtitle, icon, danger }: { title: string; value: string; subtitle: string; icon: React.ReactNode; danger?: boolean }) {
   return (
     <Card className={danger ? "border-destructive" : ""}>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 mb-2">{icon}<span className="text-xs text-muted-foreground">{title}</span></div>
-        <p className={`text-2xl font-bold ${danger ? "text-destructive" : "text-foreground"}`}>{value}</p>
+      <CardContent className="p-3 sm:p-4">
+        <div className="flex items-center gap-2 mb-2">{icon}<span className="truncate text-xs text-muted-foreground">{title}</span></div>
+        <p className={`text-xl font-bold sm:text-2xl ${danger ? "text-destructive" : "text-foreground"}`}>{value}</p>
         <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
       </CardContent>
     </Card>

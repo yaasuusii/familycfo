@@ -52,11 +52,11 @@ export default function Reports() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-2xl font-bold">Reports</h2>
         <div className="flex gap-2">
           <Select value={month} onValueChange={setMonth}>
-            <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="flex-1 sm:w-48"><SelectValue /></SelectTrigger>
             <SelectContent>
               {monthOptions.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
             </SelectContent>
@@ -113,6 +113,24 @@ export default function Reports() {
       <Card>
         <CardHeader><CardTitle className="text-base">Category Breakdown</CardTitle></CardHeader>
         <CardContent>
+          {/* Mobile card list */}
+          <div className="space-y-2 md:hidden">
+            {categoryBreakdown.map((c) => (
+              <div key={c.category} className="flex items-center justify-between rounded-lg border bg-card p-3 text-sm">
+                <span>{c.category}</span>
+                <div className="text-right">
+                  <p className="font-medium">{formatETB(c.amount)}</p>
+                  <p className="text-xs text-muted-foreground">{totalExpenses > 0 ? ((c.amount / totalExpenses) * 100).toFixed(1) : 0}% of total</p>
+                </div>
+              </div>
+            ))}
+            {categoryBreakdown.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">No expenses this month</p>
+            )}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -134,6 +152,7 @@ export default function Reports() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

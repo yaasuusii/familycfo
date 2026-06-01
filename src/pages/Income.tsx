@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Plus, Trash2, X, ListFilter, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeftRight } from "lucide-react";
 
@@ -59,7 +60,7 @@ export default function Income() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const month = getCurrentMonth();
-  const { data: income = [] } = useIncome(month);
+  const { data: income = [], isLoading: incomeLoading } = useIncome(month);
   const { data: profiles = [] } = useProfiles();
   const [open, setOpen] = useState(false);
   const [filterSource, setFilterSource] = useState("all");
@@ -134,15 +135,39 @@ export default function Income() {
 
   const getUserName = (uid: string) => profiles.find((p) => p.user_id === uid)?.name ?? "Unknown";
 
+  if (incomeLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-28" />
+          <Skeleton className="hidden h-10 w-32 md:block" />
+        </div>
+        <Card>
+          <CardContent className="space-y-2 p-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+                <Skeleton className="h-5 w-16" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Income</h2>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" />Add Income</Button>
+            <Button className="hidden md:inline-flex"><Plus className="mr-2 h-4 w-4" />Add Income</Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>Add Income</DialogTitle></DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -245,6 +270,39 @@ export default function Income() {
         </div>
       )}
 
+      {/* Mobile filter bar */}
+      <div className="grid grid-cols-2 gap-2 md:hidden">
+        <Select value={filterSource} onValueChange={setFilterSource}>
+          <SelectTrigger className="h-10"><SelectValue placeholder="Source" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Sources</SelectItem>
+            {INCOME_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterPayment} onValueChange={setFilterPayment}>
+          <SelectTrigger className="h-10"><SelectValue placeholder="Account" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Accounts</SelectItem>
+            {PAYMENT_METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={filterUser} onValueChange={setFilterUser}>
+          <SelectTrigger className="h-10"><SelectValue placeholder="Added by" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Users</SelectItem>
+            {profiles.map((p) => <SelectItem key={p.user_id} value={p.user_id}>{p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={sortAmount} onValueChange={(v) => setSortAmount(v as "none" | "asc" | "desc")}>
+          <SelectTrigger className="h-10"><SelectValue placeholder="Sort" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sort: Newest</SelectItem>
+            <SelectItem value="desc">Amount: High to Low</SelectItem>
+            <SelectItem value="asc">Amount: Low to High</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base space-y-2">
@@ -263,16 +321,71 @@ export default function Income() {
               </span>
             </div>
             {hasTransfers && (
-              <div className="flex items-center gap-2 text-sm font-normal">
-                <Switch checked={hideTransfers} onCheckedChange={setHideTransfers} className="scale-75" />
+              <label className="flex cursor-pointer items-center gap-2 py-1 text-sm font-normal">
+                <Switch checked={hideTransfers} onCheckedChange={setHideTransfers} />
                 <span className="text-muted-foreground">
                   Hide self-transfers ({formatETB(transferTotal)})
                 </span>
-              </div>
+              </label>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {/* Mobile card list */}
+          <div className="space-y-2 md:hidden">
+            {sorted.map((i) => (
+              <div
+                key={i.id}
+                className={`rounded-lg border p-3 ${i.is_self_transfer ? "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20" : "bg-card"}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    {i.user_id === user?.id ? (
+                      <Select value={i.source} onValueChange={(v) => handleSourceChange(i.id, v)}>
+                        <SelectTrigger className="h-9 w-full max-w-[10rem] text-sm font-medium"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {INCOME_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <SourceBadge source={i.source} />
+                    )}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                      <span>{i.date}</span>
+                      <PaymentBadge method={i.payment_method} />
+                      <span>· {getUserName(i.user_id)}</span>
+                      {i.is_self_transfer && (
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                          <ArrowLeftRight className="h-2.5 w-2.5" />Transfer
+                        </span>
+                      )}
+                    </div>
+                    {i.notes && (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {/^https?:\/\//.test(i.notes) ? (
+                          <a href={i.notes} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">View Receipt</a>
+                        ) : <span className="line-clamp-2">{i.notes}</span>}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span className="font-semibold">{formatETB(Number(i.amount))}</span>
+                    {i.user_id === user?.id && (
+                      <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleDelete(i.id)} aria-label="Delete income">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {filtered.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">No income recorded this month</p>
+            )}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -438,8 +551,19 @@ export default function Income() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
+
+      {/* Mobile floating action button */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Add income"
+        className="fixed bottom-20 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform active:scale-95 md:hidden"
+      >
+        <Plus className="h-6 w-6" />
+      </button>
     </div>
   );
 }

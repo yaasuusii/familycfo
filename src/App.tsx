@@ -1,3 +1,4 @@
+import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -48,7 +49,8 @@ function AuthRoute() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
+  <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+    <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
@@ -75,7 +77,8 @@ const App = () => (
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
-  </QueryClientProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;

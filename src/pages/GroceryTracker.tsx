@@ -123,7 +123,7 @@ export default function GroceryTracker() {
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <StatCard title="Monthly Grocery" value={formatETB(totalGrocery)} icon={<ShoppingCart className="h-4 w-4 text-warning" />} />
         <StatCard title="Avg Weekly Spend" value={formatETB(avgWeekly)} icon={<CalendarDays className="h-4 w-4 text-primary" />} />
         <StatCard title={usingMarketPrices ? "Weekly Budget" : "Meal Plan Budget"} value={formatETB(plannedWeeklyCost)} icon={<UtensilsCrossed className="h-4 w-4 text-success" />} />
@@ -335,11 +335,11 @@ export default function GroceryTracker() {
 function StatCard({ title, value, icon }: { title: string; value: string; icon: React.ReactNode }) {
   return (
     <Card>
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">{icon}</div>
-        <div>
-          <p className="text-xs text-muted-foreground">{title}</p>
-          <p className="text-lg font-semibold">{value}</p>
+      <CardContent className="flex items-center gap-2.5 p-3 sm:gap-3 sm:p-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary sm:h-10 sm:w-10">{icon}</div>
+        <div className="min-w-0">
+          <p className="truncate text-xs text-muted-foreground">{title}</p>
+          <p className="text-base font-semibold sm:text-lg">{value}</p>
         </div>
       </CardContent>
     </Card>

@@ -74,6 +74,42 @@ export default function RecurringTransactions() {
           )}
           <Card>
             <CardContent className="p-0">
+              {/* Mobile card list */}
+              <div className="space-y-2 p-3 md:hidden">
+                {incomeRules.map((r) => (
+                  <div key={r.id} className="rounded-lg border bg-card p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium">{r.title}</p>
+                        <p className="text-xs capitalize text-muted-foreground">{r.frequency} · Next {getNextDueDate(r)}</p>
+                      </div>
+                      <Badge variant={r.is_active ? "default" : "secondary"}>{r.is_active ? "Active" : "Paused"}</Badge>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="font-semibold">{formatETB(Number(r.amount))}</span>
+                      {isAdmin && (
+                        <div className="flex gap-1">
+                          <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => updateIncome.mutate({ id: r.id, is_active: !r.is_active })}>
+                            {r.is_active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => setHistoryId({ id: r.id, type: "income" })}>
+                            <History className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-9 w-9 text-destructive" onClick={() => { deleteIncome.mutate(r.id); toast.success("Deleted"); }}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {incomeRules.length === 0 && (
+                  <p className="py-8 text-center text-sm text-muted-foreground">No recurring income rules</p>
+                )}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden md:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -113,6 +149,7 @@ export default function RecurringTransactions() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -131,6 +168,43 @@ export default function RecurringTransactions() {
           )}
           <Card>
             <CardContent className="p-0">
+              {/* Mobile card list */}
+              <div className="space-y-2 p-3 md:hidden">
+                {expenseRules.map((r) => (
+                  <div key={r.id} className="rounded-lg border bg-card p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium">{r.title}</p>
+                        <p className="text-xs text-muted-foreground">{r.category}</p>
+                        <p className="text-xs capitalize text-muted-foreground">{r.frequency} · Next {getNextDueDate(r)}</p>
+                      </div>
+                      <Badge variant={r.is_active ? "default" : "secondary"}>{r.is_active ? "Active" : "Paused"}</Badge>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="font-semibold">{formatETB(Number(r.amount))}</span>
+                      {isAdmin && (
+                        <div className="flex gap-1">
+                          <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => updateExpense.mutate({ id: r.id, is_active: !r.is_active })}>
+                            {r.is_active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => setHistoryId({ id: r.id, type: "expense" })}>
+                            <History className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-9 w-9 text-destructive" onClick={() => { deleteExpense.mutate(r.id); toast.success("Deleted"); }}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {expenseRules.length === 0 && (
+                  <p className="py-8 text-center text-sm text-muted-foreground">No recurring expense rules</p>
+                )}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden md:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -172,6 +246,7 @@ export default function RecurringTransactions() {
                   )}
                 </TableBody>
               </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

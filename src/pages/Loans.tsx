@@ -78,6 +78,45 @@ export default function Loans() {
   };
 
   const LoanTable = ({ items }: { items: typeof loans }) => (
+    <>
+    {/* Mobile card list */}
+    <div className="space-y-2 md:hidden">
+      {items.map((l) => (
+        <div
+          key={l.id}
+          onClick={() => navigate(`/loans/${l.id}`)}
+          className={`cursor-pointer rounded-lg border p-3 ${isOverdue(l) ? "border-destructive/40 bg-destructive/10" : "bg-card"}`}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-medium">{l.lender_or_borrower_name}</p>
+            <Badge variant={l.status === "active" ? (isOverdue(l) ? "destructive" : "default") : "secondary"}>
+              {isOverdue(l) ? "Overdue" : l.status}
+            </Badge>
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <p className="text-muted-foreground">Principal</p>
+              <p className="font-medium">{formatETB(Number(l.principal_amount))}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Total Due</p>
+              <p className="font-medium">{formatETB(Number(l.total_amount_due))}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Remaining</p>
+              <p className="font-medium">{formatETB(Number(l.remaining_balance))}</p>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">End date: {l.end_date || "—"}</p>
+        </div>
+      ))}
+      {items.length === 0 && (
+        <p className="py-8 text-center text-sm text-muted-foreground">No loans found</p>
+      )}
+    </div>
+
+    {/* Desktop table */}
+    <div className="hidden md:block">
     <Table>
       <TableHeader>
         <TableRow>
@@ -113,6 +152,8 @@ export default function Loans() {
         )}
       </TableBody>
     </Table>
+    </div>
+    </>
   );
 
   return (

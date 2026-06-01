@@ -1,9 +1,11 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useIncome, useExpenses, useBudgets, getCurrentMonth } from "@/hooks/useFinanceData";
 import { useLoans } from "@/hooks/useLoanData";
 import { useUpcomingRecurring } from "@/hooks/useRecurringData";
@@ -30,9 +32,10 @@ function getStatusBg(pct: number) {
 export default function Dashboard() {
   const month = getCurrentMonth();
   const eth = getCurrentEthiopianMonth();
+  const isMobile = useIsMobile();
 
-  const { data: income = [] } = useIncome(month);
-  const { data: expenses = [] } = useExpenses(month);
+  const { data: income = [], isLoading: incomeLoading } = useIncome(month);
+  const { data: expenses = [], isLoading: expensesLoading } = useExpenses(month);
   const { data: budgets = [] } = useBudgets(eth.month, eth.year);
   const { data: allLoans = [] } = useLoans();
   const upcomingItems = useUpcomingRecurring();
@@ -116,6 +119,34 @@ export default function Dashboard() {
 
   const ethMonthLabel = `${getEthiopianMonthName(eth.month)} ${eth.year}`;
 
+  if (incomeLoading || expensesLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="mt-2 h-4 w-56" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="flex items-center gap-2.5 p-3 sm:gap-3 sm:p-4">
+                <Skeleton className="h-9 w-9 shrink-0 rounded-lg sm:h-10 sm:w-10" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-3 w-16" />
+                  <Skeleton className="h-5 w-20" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Skeleton className="h-64 w-full rounded-lg" />
+          <Skeleton className="h-64 w-full rounded-lg" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -150,7 +181,7 @@ export default function Dashboard() {
       )}
 
       {/* Summary cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <SummaryCard title="Monthly Income" value={formatETB(totalIncome)} icon={<TrendingUp className="h-4 w-4 text-success" />} />
         <SummaryCard title="Monthly Expenses" value={formatETB(totalExpenses)} icon={<TrendingDown className="h-4 w-4 text-destructive" />} />
         <SummaryCard title="Remaining" value={formatETB(remaining)} icon={<Wallet className="h-4 w-4 text-primary" />} />
@@ -161,7 +192,7 @@ export default function Dashboard() {
 
       {/* Loan Summary Cards */}
       {allLoans.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
           <SummaryCard title="Active Loans Taken" value={String(activeTaken.length)} icon={<Landmark className="h-4 w-4 text-destructive" />} />
           <SummaryCard title="Active Loans Given" value={String(activeGiven.length)} icon={<HandCoins className="h-4 w-4 text-success" />} />
           <SummaryCard title="Total Debt" value={formatETB(totalDebt)} icon={<TrendingDown className="h-4 w-4 text-destructive" />} />
@@ -344,12 +375,21 @@ export default function Dashboard() {
           <CardHeader><CardTitle className="text-base">Expense Breakdown</CardTitle></CardHeader>
           <CardContent>
             {categoryData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={isMobile ? 300 : 250}>
                 <PieChart>
-                  <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                  <Pie
+                    data={categoryData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy={isMobile ? "42%" : "50%"}
+                    outerRadius={isMobile ? 75 : 90}
+                    label={isMobile ? false : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
                     {categoryData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(v: number) => formatETB(v)} />
+                  {isMobile && <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: 12 }} />}
                 </PieChart>
               </ResponsiveContainer>
             ) : <p className="text-center text-sm text-muted-foreground py-8">No expenses yet</p>}
@@ -398,11 +438,11 @@ export default function Dashboard() {
 function SummaryCard({ title, value, icon }: { title: string; value: string; icon: React.ReactNode }) {
   return (
     <Card>
-      <CardContent className="flex items-center gap-3 p-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">{icon}</div>
-        <div>
-          <p className="text-xs text-muted-foreground">{title}</p>
-          <p className="text-lg font-semibold text-foreground">{value}</p>
+      <CardContent className="flex items-center gap-2.5 p-3 sm:gap-3 sm:p-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary sm:h-10 sm:w-10">{icon}</div>
+        <div className="min-w-0">
+          <p className="truncate text-xs text-muted-foreground">{title}</p>
+          <p className="text-base font-semibold text-foreground sm:text-lg">{value}</p>
         </div>
       </CardContent>
     </Card>

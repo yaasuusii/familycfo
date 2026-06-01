@@ -103,6 +103,22 @@ export default function SettingsPage() {
           )}
         </CardHeader>
         <CardContent>
+          {/* Mobile card list */}
+          <div className="space-y-2 md:hidden">
+            {profiles.map((p) => (
+              <div key={p.id} className="rounded-lg border bg-card p-3">
+                <p className="font-medium">{p.name}</p>
+                <p className="break-all text-sm text-muted-foreground">{p.email}</p>
+                <p className="text-xs text-muted-foreground">Joined {new Date(p.created_at).toLocaleDateString()}</p>
+              </div>
+            ))}
+            {profiles.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">No members yet</p>
+            )}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -121,6 +137,7 @@ export default function SettingsPage() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
