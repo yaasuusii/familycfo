@@ -66,17 +66,17 @@ export type Database = {
         Row: {
           category: string
           keyword: string
-          match_type: string
+          match_type: string | null
         }
         Insert: {
           category: string
           keyword: string
-          match_type?: string
+          match_type?: string | null
         }
         Update: {
           category?: string
           keyword?: string
-          match_type?: string
+          match_type?: string | null
         }
         Relationships: []
       }
@@ -118,7 +118,7 @@ export type Database = {
           date: string
           id: string
           is_auto_generated: boolean
-          is_self_transfer: boolean
+          is_self_transfer: boolean | null
           notes: string | null
           payment_method: string
           recurring_id: string | null
@@ -131,7 +131,7 @@ export type Database = {
           date?: string
           id?: string
           is_auto_generated?: boolean
-          is_self_transfer?: boolean
+          is_self_transfer?: boolean | null
           notes?: string | null
           payment_method: string
           recurring_id?: string | null
@@ -144,7 +144,7 @@ export type Database = {
           date?: string
           id?: string
           is_auto_generated?: boolean
-          is_self_transfer?: boolean
+          is_self_transfer?: boolean | null
           notes?: string | null
           payment_method?: string
           recurring_id?: string | null
@@ -180,9 +180,9 @@ export type Database = {
           date: string
           id: string
           is_auto_generated: boolean
-          is_self_transfer: boolean
+          is_self_transfer: boolean | null
           notes: string | null
-          payment_method: string
+          payment_method: string | null
           recurring_id: string | null
           source: string
           user_id: string
@@ -193,9 +193,9 @@ export type Database = {
           date?: string
           id?: string
           is_auto_generated?: boolean
-          is_self_transfer?: boolean
+          is_self_transfer?: boolean | null
           notes?: string | null
-          payment_method?: string
+          payment_method?: string | null
           recurring_id?: string | null
           source: string
           user_id: string
@@ -206,9 +206,9 @@ export type Database = {
           date?: string
           id?: string
           is_auto_generated?: boolean
-          is_self_transfer?: boolean
+          is_self_transfer?: boolean | null
           notes?: string | null
-          payment_method?: string
+          payment_method?: string | null
           recurring_id?: string | null
           source?: string
           user_id?: string
