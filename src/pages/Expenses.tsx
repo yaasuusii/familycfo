@@ -173,11 +173,23 @@ export default function Expenses() {
                 <Label>Notes</Label>
                 <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
-              <div className="flex items-center gap-3 rounded-lg border p-3 bg-muted/50">
+              <div className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
+                form.is_self_transfer
+                  ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800"
+                  : (form.payment_method === "CBE" || form.payment_method === "BOA")
+                    ? "bg-blue-50/50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800"
+                    : "bg-muted/50"
+              }`}>
                 <Switch checked={form.is_self_transfer} onCheckedChange={(v) => setForm({ ...form, is_self_transfer: v })} />
                 <div>
                   <Label className="text-sm font-medium">Self-transfer</Label>
-                  <p className="text-xs text-muted-foreground">Internal transfer between your own accounts (e.g. CBE/BOA to Telebirr)</p>
+                  <p className="text-xs text-muted-foreground">
+                    {form.is_self_transfer
+                      ? "This will be excluded from real expense totals"
+                      : (form.payment_method === "CBE" || form.payment_method === "BOA")
+                        ? "Is this a transfer to your Telebirr (127)? Turn this on."
+                        : "Internal transfer between your own accounts (e.g. CBE/BOA to Telebirr)"}
+                  </p>
                 </div>
               </div>
               <Button type="submit" className="w-full" disabled={submitting}>{submitting ? "Saving…" : "Save"}</Button>
