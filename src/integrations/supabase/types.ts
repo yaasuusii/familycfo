@@ -66,14 +66,17 @@ export type Database = {
         Row: {
           category: string
           keyword: string
+          match_type: string
         }
         Insert: {
           category: string
           keyword: string
+          match_type?: string
         }
         Update: {
           category?: string
           keyword?: string
+          match_type?: string
         }
         Relationships: []
       }

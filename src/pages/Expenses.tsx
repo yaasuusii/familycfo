@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useExpenses, useCategories, useProfiles, getCurrentMonth } from "@/hooks/useFinanceData";
+import { useExpenses, useCategories, useCategoryRules, useProfiles, getCurrentMonth } from "@/hooks/useFinanceData";
 import { formatETB } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Trash2, X, ListFilter, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeftRight } from "lucide-react";
+import { Plus, Trash2, X, ListFilter, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeftRight, Sparkles } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { useCallback } from "react";
 
 const PAYMENT_METHODS = ["Cash", "CBE", "BOA", "127"] as const;
 type PaymentMethod = typeof PAYMENT_METHODS[number];
@@ -43,6 +44,7 @@ export default function Expenses() {
   const month = getCurrentMonth();
   const { data: expenses = [] } = useExpenses(month);
   const { data: categories = [] } = useCategories();
+  const { data: categoryRules = [] } = useCategoryRules();
   const { data: profiles = [] } = useProfiles();
   const [open, setOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState("all");
@@ -52,6 +54,105 @@ export default function Expenses() {
   const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "", is_self_transfer: false });
   const [submitting, setSubmitting] = useState(false);
   const [hideTransfers, setHideTransfers] = useState(false);
+  const [categorySuggestion, setCategorySuggestion] = useState<string | null>(null);
+  const [fetchingReceipt, setFetchingReceipt] = useState(false);
+
+  // Auto-suggest category from receipt URL or notes text
+  const suggestCategoryFromNotes = useCallback(async (notes: string) => {
+    if (!notes || categoryRules.length === 0) {
+      setCategorySuggestion(null);
+      return;
+    }
+
+    // 1. Check keyword rules against notes text (for manual notes like "suk" or "lunch")
+    const notesLower = notes.toLowerCase();
+    const keywordRules = categoryRules.filter(r => r.match_type === 'keyword' || !r.match_type);
+    // Sort by keyword length desc so "home paper" matches before "home"
+    const sorted = [...keywordRules].sort((a, b) => b.keyword.length - a.keyword.length);
+    for (const rule of sorted) {
+      if (notesLower.includes(rule.keyword.toLowerCase())) {
+        setCategorySuggestion(rule.category);
+        return;
+      }
+    }
+
+    // 2. If it's a Telebirr receipt URL, fetch and check recipient
+    if (notes.includes('transactioninfo.ethiotelecom.et/receipt/')) {
+      setFetchingReceipt(true);
+      try {
+        const res = await fetch(notes);
+        const html = await res.text();
+
+        // Extract recipient name
+        let recipient = '';
+        // Pattern: "Credited Party name" then next td contains the name
+        const m1 = html.match(/Credited [Pp]arty.*?<label[^>]*>(.*?)<\/label>/s);
+        if (m1) {
+          recipient = m1[1].trim();
+        } else {
+          const m2 = html.match(/Credited Party name\s*<\/td>\s*<td[^>]*>(.*?)<\/td>/s);
+          if (m2) {
+            recipient = m2[1].replace(/<[^>]+>/g, '').trim();
+          }
+        }
+
+        // Extract payment reason
+        let reason = '';
+        const m3 = html.match(/Payment Reason[^<]*(?:<\/td>)?\s*(?:<td[^>]*>)?\s*(.*?)(?:<\/td>|<br|\n)/si);
+        if (m3) {
+          reason = m3[1].replace(/<[^>]+>/g, '').trim();
+        }
+
+        // Check recipient against rules
+        if (recipient) {
+          const recipientRules = categoryRules.filter(r => r.match_type === 'recipient');
+          for (const rule of recipientRules) {
+            if (rule.keyword.toLowerCase() === recipient.toLowerCase()) {
+              setCategorySuggestion(rule.category);
+              setFetchingReceipt(false);
+              return;
+            }
+          }
+        }
+
+        // Check reason against keyword rules
+        if (reason) {
+          const reasonLower = reason.toLowerCase();
+          for (const rule of sorted) {
+            if (reasonLower.includes(rule.keyword.toLowerCase())) {
+              setCategorySuggestion(rule.category);
+              setFetchingReceipt(false);
+              return;
+            }
+          }
+        }
+
+        // Reason-based fallback for known telebirr reasons
+        if (reason.includes('Buy Goods')) {
+          setCategorySuggestion('Shopping');
+        } else if (reason.includes('Airtime') || reason.includes('Telecom') || reason.includes('CRM Buy Package')) {
+          setCategorySuggestion('Utilities');
+        } else if (reason.includes('Customer Transfer from Mobile Money to Bank')) {
+          setCategorySuggestion('Transfer');
+        }
+      } catch {
+        // Receipt fetch failed - no suggestion
+      } finally {
+        setFetchingReceipt(false);
+      }
+      return;
+    }
+
+    setCategorySuggestion(null);
+  }, [categoryRules]);
+
+  // Trigger auto-suggest when notes change (with debounce for URL fetching)
+  useEffect(() => {
+    const isUrl = form.notes.startsWith('http');
+    const delay = isUrl ? 500 : 100;  // Debounce URL fetches
+    const timer = setTimeout(() => suggestCategoryFromNotes(form.notes), delay);
+    return () => clearTimeout(timer);
+  }, [form.notes, suggestCategoryFromNotes]);
 
   const activeFilterCount = [filterCategory, filterUser, filterPayment].filter((f) => f !== "all").length;
 
@@ -83,7 +184,7 @@ export default function Expenses() {
     if (!user || submitting) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase.from("expenses").insert({
+      const { data: inserted, error } = await supabase.from("expenses").insert({
         user_id: user.id,
         date: form.date,
         category: form.category,
@@ -91,12 +192,26 @@ export default function Expenses() {
         payment_method: form.payment_method,
         notes: form.notes || null,
         is_self_transfer: form.is_self_transfer,
-      });
+      }).select("id, notes, category").single();
       if (error) { toast.error(error.message); return; }
       toast.success("Expense added");
       setOpen(false);
       setForm({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "", is_self_transfer: false });
+      setCategorySuggestion(null);
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
+
+      // Auto-categorize via Edge Function if category is "Other" and has receipt URL
+      if (inserted && inserted.category === "Other" && inserted.notes?.startsWith("http")) {
+        supabase.functions.invoke("auto-categorize", {
+          body: { expense_id: inserted.id },
+        }).then(({ data }) => {
+          if (data?.updated > 0) {
+            const newCat = data.results?.[0]?.category;
+            toast.success(`Auto-categorized as ${newCat}`, { icon: "✨" });
+            queryClient.invalidateQueries({ queryKey: ["expenses"] });
+          }
+        }).catch(() => { /* silent — manual category still works */ });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -171,7 +286,26 @@ export default function Expenses() {
               </div>
               <div className="space-y-2">
                 <Label>Notes</Label>
-                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Paste receipt URL or add notes (e.g. suk, lunch, pharmacy)" />
+                {fetchingReceipt && (
+                  <p className="text-xs text-muted-foreground animate-pulse flex items-center gap-1">
+                    <Sparkles className="h-3 w-3" /> Reading receipt…
+                  </p>
+                )}
+                {categorySuggestion && !fetchingReceipt && categorySuggestion !== form.category && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm({ ...form, category: categorySuggestion });
+                      setCategorySuggestion(null);
+                      toast.success(`Category set to ${categorySuggestion}`);
+                    }}
+                    className="flex items-center gap-1.5 rounded-md bg-violet-50 border border-violet-200 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors dark:bg-violet-950/30 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/50"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    Suggest: {categorySuggestion} — click to apply
+                  </button>
+                )}
               </div>
               <div className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
                 form.is_self_transfer

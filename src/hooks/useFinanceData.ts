@@ -47,6 +47,17 @@ export function useCategories() {
   });
 }
 
+export function useCategoryRules() {
+  return useQuery({
+    queryKey: ["category_rules"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("category_rules").select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 export function useBudgets(ethMonth?: number, ethYear?: number) {
   const { year: cy, month: cm } = parseEthMonth(getCurrentEthMonth());
   const m = ethMonth ?? cm;
