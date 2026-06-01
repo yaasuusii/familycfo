@@ -36,6 +36,25 @@ function SourceBadge({ source }: { source: string }) {
   );
 }
 
+const PAYMENT_METHODS = ["Cash", "CBE", "BOA", "127"] as const;
+type PaymentMethod = typeof PAYMENT_METHODS[number];
+
+const PAYMENT_BADGE: Record<PaymentMethod, string> = {
+  Cash:  "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+  CBE:   "bg-blue-100   text-blue-800   dark:bg-blue-900/40   dark:text-blue-300",
+  BOA:   "bg-red-100    text-red-800    dark:bg-red-900/40    dark:text-red-300",
+  "127": "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
+};
+
+function PaymentBadge({ method }: { method: string }) {
+  const cls = PAYMENT_BADGE[method as PaymentMethod] ?? "bg-secondary text-foreground";
+  return (
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ${cls}`}>
+      {method}
+    </span>
+  );
+}
+
 export default function Income() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -45,22 +64,25 @@ export default function Income() {
   const [open, setOpen] = useState(false);
   const [filterSource, setFilterSource] = useState("all");
   const [filterUser, setFilterUser] = useState("all");
+  const [filterPayment, setFilterPayment] = useState("all");
   const [sortAmount, setSortAmount] = useState<"none" | "asc" | "desc">("none");
   const [hideTransfers, setHideTransfers] = useState(false);
-  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), source: "Salary", amount: "", notes: "", is_self_transfer: false });
+  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), source: "Salary", amount: "", payment_method: "127", notes: "", is_self_transfer: false });
   const [submitting, setSubmitting] = useState(false);
 
-  const activeFilterCount = [filterSource, filterUser].filter((f) => f !== "all").length;
+  const activeFilterCount = [filterSource, filterUser, filterPayment].filter((f) => f !== "all").length;
 
   const clearAllFilters = () => {
     setFilterSource("all");
     setFilterUser("all");
+    setFilterPayment("all");
   };
 
   const filtered = income.filter((i) => {
     if (hideTransfers && i.is_self_transfer) return false;
     if (filterSource !== "all" && i.source !== filterSource) return false;
     if (filterUser !== "all" && i.user_id !== filterUser) return false;
+    if (filterPayment !== "all" && i.payment_method !== filterPayment) return false;
     return true;
   });
 
@@ -82,13 +104,14 @@ export default function Income() {
         date: form.date,
         source: form.source,
         amount: parseFloat(form.amount),
+        payment_method: form.payment_method,
         notes: form.notes || null,
         is_self_transfer: form.is_self_transfer,
       });
       if (error) { toast.error(error.message); return; }
       toast.success("Income added");
       setOpen(false);
-      setForm({ date: new Date().toISOString().slice(0, 10), source: "Salary", amount: "", notes: "", is_self_transfer: false });
+      setForm({ date: new Date().toISOString().slice(0, 10), source: "Salary", amount: "", payment_method: "127", notes: "", is_self_transfer: false });
       queryClient.invalidateQueries({ queryKey: ["income"] });
     } finally {
       setSubmitting(false);
@@ -99,6 +122,13 @@ export default function Income() {
     const { error } = await supabase.from("income").delete().eq("id", id);
     if (error) { toast.error(error.message); return; }
     toast.success("Deleted");
+    queryClient.invalidateQueries({ queryKey: ["income"] });
+  };
+
+  const handleSourceChange = async (id: string, source: string) => {
+    const { error } = await supabase.from("income").update({ source }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Source updated");
     queryClient.invalidateQueries({ queryKey: ["income"] });
   };
 
@@ -139,9 +169,30 @@ export default function Income() {
                   </Select>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Amount (ETB)</Label>
-                <Input type="number" step="0.01" min="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Amount (ETB)</Label>
+                  <Input type="number" step="0.01" min="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Account / Received Into</Label>
+                  <Select value={form.payment_method} onValueChange={(v) => setForm({ ...form, payment_method: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_METHODS.map((m) => (
+                        <SelectItem key={m} value={m}>
+                          <span className="flex items-center gap-2">
+                            <PaymentBadge method={m} />
+                            {m === "CBE" && "Commercial Bank of Ethiopia"}
+                            {m === "BOA" && "Bank of Abyssinia"}
+                            {m === "127" && "Telebirr (127)"}
+                            {m === "Cash" && "Cash"}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Notes</Label>
@@ -168,6 +219,12 @@ export default function Income() {
             <Badge variant="secondary" className="gap-1 pr-1 font-normal">
               Source: <SourceBadge source={filterSource} />
               <button onClick={() => setFilterSource("all")} className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"><X className="h-3 w-3" /></button>
+            </Badge>
+          )}
+          {filterPayment !== "all" && (
+            <Badge variant="secondary" className="gap-1 pr-1 font-normal">
+              Account: <PaymentBadge method={filterPayment} />
+              <button onClick={() => setFilterPayment("all")} className="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5"><X className="h-3 w-3" /></button>
             </Badge>
           )}
           {filterUser !== "all" && (
@@ -270,6 +327,33 @@ export default function Income() {
                   </Popover>
                 </TableHead>
 
+                {/* Account — filterable */}
+                <TableHead>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="inline-flex items-center gap-1 hover:text-foreground transition-colors">
+                        Account
+                        <ListFilter className={`h-3.5 w-3.5 ${filterPayment !== "all" ? "text-primary" : "text-muted-foreground"}`} />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-44 p-2" align="start">
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => setFilterPayment("all")}
+                          className={`w-full text-left px-2 py-1.5 text-sm rounded-md hover:bg-accent ${filterPayment === "all" ? "bg-accent font-medium" : ""}`}
+                        >All Accounts</button>
+                        {PAYMENT_METHODS.map((m) => (
+                          <button
+                            key={m}
+                            onClick={() => setFilterPayment(m)}
+                            className={`w-full text-left px-2 py-1.5 text-sm rounded-md hover:bg-accent flex items-center gap-2 ${filterPayment === m ? "bg-accent font-medium" : ""}`}
+                          ><PaymentBadge method={m} /></button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </TableHead>
+
                 {/* Added By — filterable */}
                 <TableHead>
                   <Popover>
@@ -314,8 +398,20 @@ export default function Income() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell><SourceBadge source={i.source} /></TableCell>
+                  <TableCell>
+                    {i.user_id === user?.id ? (
+                      <Select value={i.source} onValueChange={(v) => handleSourceChange(i.id, v)}>
+                        <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {INCOME_SOURCES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <SourceBadge source={i.source} />
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">{formatETB(Number(i.amount))}</TableCell>
+                  <TableCell><PaymentBadge method={i.payment_method} /></TableCell>
                   <TableCell>{getUserName(i.user_id)}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {i.notes && /^https?:\/\//.test(i.notes) ? (
@@ -330,7 +426,7 @@ export default function Income() {
                 </TableRow>
               ))}
               {filtered.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No income recorded this month</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No income recorded this month</TableCell></TableRow>
               )}
             </TableBody>
           </Table>

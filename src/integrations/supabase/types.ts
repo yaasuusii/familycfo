@@ -179,6 +179,7 @@ export type Database = {
           is_auto_generated: boolean
           is_self_transfer: boolean
           notes: string | null
+          payment_method: string
           recurring_id: string | null
           source: string
           user_id: string
@@ -191,6 +192,7 @@ export type Database = {
           is_auto_generated?: boolean
           is_self_transfer?: boolean
           notes?: string | null
+          payment_method?: string
           recurring_id?: string | null
           source: string
           user_id: string
@@ -203,6 +205,7 @@ export type Database = {
           is_auto_generated?: boolean
           is_self_transfer?: boolean
           notes?: string | null
+          payment_method?: string
           recurring_id?: string | null
           source?: string
           user_id?: string
