@@ -15,7 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Trash2, X, ListFilter, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Trash2, X, ListFilter, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeftRight } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 const PAYMENT_METHODS = ["Cash", "CBE", "BOA", "127"] as const;
 type PaymentMethod = typeof PAYMENT_METHODS[number];
@@ -48,8 +49,9 @@ export default function Expenses() {
   const [filterUser, setFilterUser] = useState("all");
   const [filterPayment, setFilterPayment] = useState("all");
   const [sortAmount, setSortAmount] = useState<"none" | "asc" | "desc">("none");
-  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "" });
+  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "", is_self_transfer: false });
   const [submitting, setSubmitting] = useState(false);
+  const [hideTransfers, setHideTransfers] = useState(false);
 
   const activeFilterCount = [filterCategory, filterUser, filterPayment].filter((f) => f !== "all").length;
 
@@ -60,11 +62,15 @@ export default function Expenses() {
   };
 
   const filtered = expenses.filter((e) => {
+    if (hideTransfers && e.is_self_transfer) return false;
     if (filterCategory !== "all" && e.category !== filterCategory) return false;
     if (filterUser !== "all" && e.user_id !== filterUser) return false;
     if (filterPayment !== "all" && e.payment_method !== filterPayment) return false;
     return true;
   });
+
+  const transferTotal = expenses.filter((e) => e.is_self_transfer).reduce((s, e) => s + Number(e.amount), 0);
+  const hasTransfers = transferTotal > 0;
 
   const sorted = sortAmount === "none" ? filtered : [...filtered].sort((a, b) =>
     sortAmount === "asc" ? Number(a.amount) - Number(b.amount) : Number(b.amount) - Number(a.amount)
@@ -84,11 +90,12 @@ export default function Expenses() {
         amount: parseFloat(form.amount),
         payment_method: form.payment_method,
         notes: form.notes || null,
+        is_self_transfer: form.is_self_transfer,
       });
       if (error) { toast.error(error.message); return; }
       toast.success("Expense added");
       setOpen(false);
-      setForm({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "" });
+      setForm({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "", is_self_transfer: false });
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
     } finally {
       setSubmitting(false);
@@ -166,6 +173,13 @@ export default function Expenses() {
                 <Label>Notes</Label>
                 <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
+              <div className="flex items-center gap-3 rounded-lg border p-3 bg-muted/50">
+                <Switch checked={form.is_self_transfer} onCheckedChange={(v) => setForm({ ...form, is_self_transfer: v })} />
+                <div>
+                  <Label className="text-sm font-medium">Self-transfer</Label>
+                  <p className="text-xs text-muted-foreground">Internal transfer between your own accounts (e.g. CBE/BOA to Telebirr)</p>
+                </div>
+              </div>
               <Button type="submit" className="w-full" disabled={submitting}>{submitting ? "Saving…" : "Save"}</Button>
             </form>
           </DialogContent>
@@ -200,12 +214,29 @@ export default function Expenses() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center justify-between">
-            <span>Total: {formatETB(totalFiltered)}</span>
-            <span className="text-sm font-normal text-muted-foreground">
-              {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
-              {activeFilterCount > 0 ? ` (of ${expenses.length})` : ""}
-            </span>
+          <CardTitle className="text-base space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span>Total: {formatETB(totalFiltered)}</span>
+                {hasTransfers && !hideTransfers && (
+                  <span className="text-sm font-normal text-muted-foreground">
+                    (Real: {formatETB(totalFiltered - filtered.filter(e => e.is_self_transfer).reduce((s, e) => s + Number(e.amount), 0))})
+                  </span>
+                )}
+              </div>
+              <span className="text-sm font-normal text-muted-foreground">
+                {filtered.length} {filtered.length === 1 ? "entry" : "entries"}
+                {activeFilterCount > 0 || hideTransfers ? ` (of ${expenses.length})` : ""}
+              </span>
+            </div>
+            {hasTransfers && (
+              <div className="flex items-center gap-2 text-sm font-normal">
+                <Switch checked={hideTransfers} onCheckedChange={setHideTransfers} className="scale-75" />
+                <span className="text-muted-foreground">
+                  Hide self-transfers ({formatETB(transferTotal)})
+                </span>
+              </div>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -331,8 +362,17 @@ export default function Expenses() {
             </TableHeader>
             <TableBody>
               {sorted.map((e) => (
-                <TableRow key={e.id}>
-                  <TableCell>{e.date}</TableCell>
+                <TableRow key={e.id} className={e.is_self_transfer ? "opacity-60 bg-amber-50/50 dark:bg-amber-950/20" : ""}>
+                  <TableCell>
+                    <div className="flex items-center gap-1.5">
+                      {e.date}
+                      {e.is_self_transfer && (
+                        <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                          <ArrowLeftRight className="h-2.5 w-2.5" />Transfer
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {e.user_id === user?.id ? (
                       <Select value={e.category} onValueChange={(v) => handleCategoryChange(e.id, v)}>

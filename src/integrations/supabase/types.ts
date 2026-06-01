@@ -115,6 +115,7 @@ export type Database = {
           date: string
           id: string
           is_auto_generated: boolean
+          is_self_transfer: boolean
           notes: string | null
           payment_method: string
           recurring_id: string | null
@@ -127,6 +128,7 @@ export type Database = {
           date?: string
           id?: string
           is_auto_generated?: boolean
+          is_self_transfer?: boolean
           notes?: string | null
           payment_method: string
           recurring_id?: string | null
@@ -139,6 +141,7 @@ export type Database = {
           date?: string
           id?: string
           is_auto_generated?: boolean
+          is_self_transfer?: boolean
           notes?: string | null
           payment_method?: string
           recurring_id?: string | null
@@ -174,6 +177,7 @@ export type Database = {
           date: string
           id: string
           is_auto_generated: boolean
+          is_self_transfer: boolean
           notes: string | null
           recurring_id: string | null
           source: string
@@ -185,6 +189,7 @@ export type Database = {
           date?: string
           id?: string
           is_auto_generated?: boolean
+          is_self_transfer?: boolean
           notes?: string | null
           recurring_id?: string | null
           source: string
@@ -196,6 +201,7 @@ export type Database = {
           date?: string
           id?: string
           is_auto_generated?: boolean
+          is_self_transfer?: boolean
           notes?: string | null
           recurring_id?: string | null
           source?: string
