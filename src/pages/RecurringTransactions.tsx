@@ -52,7 +52,10 @@ export default function RecurringTransactions() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Recurring Transactions</h2>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Family CFO</p>
+        <h2 className="font-display text-3xl font-semibold tracking-tight">Recurring Transactions</h2>
+      </div>
 
       <Tabs defaultValue="income">
         <TabsList>

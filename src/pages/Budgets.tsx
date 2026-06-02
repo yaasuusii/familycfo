@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Money, RadialGauge, StatHeroCard, BudgetCategoryCard, Reveal, Panel, type HeroState } from "@/components/finance";
 import { toast } from "sonner";
-import { Plus, Trash2, AlertTriangle, Pencil, ShieldAlert, TrendingUp } from "lucide-react";
+import { Plus, Trash2, AlertTriangle, Pencil, ShieldAlert } from "lucide-react";
 
 const ETH_MONTHS = Array.from({ length: 13 }, (_, i) => ({
   value: i + 1,
@@ -118,12 +119,17 @@ export default function Budgets() {
   };
 
   const years = Array.from({ length: 5 }, (_, i) => ethNow.year - 2 + i);
+  const budgetState: HeroState = anyExceeded ? "bad" : overallWarning ? "warn" : "good";
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-2xl font-bold text-foreground">Budgets</h2>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Family CFO</p>
+          <h2 className="font-display text-3xl font-semibold tracking-tight text-foreground">Budgets</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{getEthiopianMonthName(selMonth)} {selYear}</p>
+        </div>
         <div className="flex items-center gap-2">
           <Select value={String(selMonth)} onValueChange={(v) => setSelMonth(Number(v))}>
             <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
@@ -187,79 +193,83 @@ export default function Budgets() {
 
       {/* Overview summary */}
       {budgetStats.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Card>
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
-                <TrendingUp className="h-4 w-4 text-primary" />
+        <Reveal>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Panel className="flex items-center gap-5">
+              <RadialGauge value={overallPct} caption="used" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Total Budget</span>
+                  <Money amount={totalBudget} className="text-sm text-foreground" />
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Total Spent</span>
+                  <Money amount={totalSpent} className="text-sm text-foreground" />
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Remaining</span>
+                  <Money amount={totalBudget - totalSpent} className="text-sm text-foreground" />
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total Budget</p>
-                <p className="text-lg font-semibold text-foreground">{formatETB(totalBudget)}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
-                <TrendingUp className="h-4 w-4 text-destructive" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Total Spent</p>
-                <p className="text-lg font-semibold text-foreground">{formatETB(totalSpent)}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
-                <TrendingUp className="h-4 w-4 text-success" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Overall Usage</p>
-                <p className={`text-lg font-semibold ${getStatus(overallPct).color}`}>{formatPercent(overallPct)}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </Panel>
+            <StatHeroCard
+              state={budgetState}
+              label="Overall Usage"
+              value={formatPercent(overallPct)}
+              subtitle={`${formatETB(totalSpent)} of ${formatETB(totalBudget)}`}
+              footer={
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/25">
+                  <div className="h-full rounded-full bg-white/90" style={{ width: `${Math.min(overallPct, 100)}%` }} />
+                </div>
+              }
+            />
+          </div>
+        </Reveal>
       )}
 
       {/* Budget cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {budgetStats.map((b) => (
-          <Card key={b.id} className={b.status.border ? `border-2 ${b.status.border}` : ""}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-base">{b.category}</CardTitle>
-              <div className="flex items-center gap-1">
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${b.status.bg} text-white`}>
-                  {b.status.label}
-                </span>
-                {isAdmin && (
-                  <>
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(b)}><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(b.id)}><Trash2 className="h-3.5 w-3.5 text-muted-foreground" /></Button>
-                  </>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Progress value={Math.min(b.pct, 100)} className={`h-2.5 [&>div]:${b.status.bg}`} />
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{formatETB(b.actual)} / {formatETB(b.limit)}</span>
-                <span className={b.status.color + " font-medium"}>{formatPercent(b.pct)}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {b.pct >= 100 ? `Over budget by ${formatETB(Math.abs(b.remaining))}` : `${formatETB(b.remaining)} remaining`}
-              </p>
-            </CardContent>
-          </Card>
+          <div key={b.id} className="group relative">
+            <BudgetCategoryCardWithControls
+              category={b.category}
+              spent={b.actual}
+              limit={b.limit}
+              isAdmin={isAdmin}
+              onEdit={() => handleEdit(b)}
+              onDelete={() => handleDelete(b.id)}
+            />
+          </div>
         ))}
         {budgetStats.length === 0 && (
-          <p className="col-span-full text-center text-muted-foreground py-8">
+          <p className="col-span-full py-10 text-center text-muted-foreground">
             No budgets set for {getEthiopianMonthName(selMonth)} {selYear}. {isAdmin ? "Click 'Set Budget' to get started." : "Ask admin to set budgets."}
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function BudgetCategoryCardWithControls({
+  category, spent, limit, isAdmin, onEdit, onDelete,
+}: {
+  category: string; spent: number; limit: number;
+  isAdmin: boolean; onEdit: () => void; onDelete: () => void;
+}) {
+  return (
+    <div className="relative">
+      <BudgetCategoryCard category={category} spent={spent} limit={limit} />
+      {isAdmin && (
+        <div className="absolute right-2 top-2 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
+            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete}>
+            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

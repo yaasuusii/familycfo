@@ -53,7 +53,10 @@ export default function Reports() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-2xl font-bold">Reports</h2>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Family CFO</p>
+          <h2 className="font-display text-3xl font-semibold tracking-tight">Reports</h2>
+        </div>
         <div className="flex gap-2">
           <Select value={month} onValueChange={setMonth}>
             <SelectTrigger className="flex-1 sm:w-48"><SelectValue /></SelectTrigger>

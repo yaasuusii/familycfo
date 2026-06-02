@@ -2,111 +2,135 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ════════════════════════════════════════════════════════════
+   FAMILY CFO — WARM EDITORIAL DESIGN SYSTEM
+   Ivory paper light · espresso dark · terracotta accent
+   Display: Fraunces (serif) · Body: Hanken Grotesk
+   ════════════════════════════════════════════════════════════ */
+
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 220 20% 10%;
+    --background: 39 44% 94%;
+    --foreground: 34 20% 14%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card: 40 100% 98%;
+    --card-foreground: 34 20% 14%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover: 40 100% 98%;
+    --popover-foreground: 34 20% 14%;
 
-    --primary: 220 70% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 11 60% 46%;
+    --primary-foreground: 40 100% 98%;
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 20% 10%;
+    --secondary: 40 40% 90%;
+    --secondary-foreground: 34 20% 14%;
 
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 10% 46%;
+    --muted: 40 40% 90%;
+    --muted-foreground: 36 14% 38%;
 
-    --accent: 220 14% 96%;
-    --accent-foreground: 220 20% 10%;
+    --accent: 40 40% 90%;
+    --accent-foreground: 11 60% 46%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 7 61% 43%;
+    --destructive-foreground: 40 100% 98%;
 
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
+    --success: 91 32% 36%;
+    --success-foreground: 40 100% 98%;
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --warning: 37 73% 45%;
+    --warning-foreground: 40 100% 98%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 220 70% 50%;
+    --info: 204 38% 39%;
+    --info-foreground: 40 100% 98%;
 
-    --radius: 0.5rem;
+    --border: 39 33% 83%;
+    --input: 38 30% 79%;
+    --ring: 11 60% 46%;
 
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 10% 30%;
-    --sidebar-primary: 220 70% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 96%;
-    --sidebar-accent-foreground: 220 20% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 220 70% 50%;
+    --radius: 0.85rem;
 
-    --chart-1: 220 70% 50%;
-    --chart-2: 142 71% 45%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 0 72% 51%;
-    --chart-6: 190 80% 45%;
+    --sidebar-background: 40 43% 90%;
+    --sidebar-foreground: 36 14% 38%;
+    --sidebar-primary: 11 60% 46%;
+    --sidebar-primary-foreground: 40 100% 98%;
+    --sidebar-accent: 40 50% 86%;
+    --sidebar-accent-foreground: 11 60% 46%;
+    --sidebar-border: 39 33% 83%;
+    --sidebar-ring: 11 60% 46%;
+
+    --chart-1: 11 60% 46%;
+    --chart-2: 204 38% 39%;
+    --chart-3: 37 73% 45%;
+    --chart-4: 91 32% 36%;
+    --chart-5: 278 22% 45%;
+    --chart-6: 174 33% 37%;
+
+    --glass-bg: 40 100% 98%;
+    --glass-opacity: 0.72;
+    --shadow-soft: 0 1px 2px hsl(34 30% 20% / 0.05), 0 4px 16px hsl(34 30% 20% / 0.06);
+    --shadow-lift: 0 8px 30px hsl(34 30% 20% / 0.12);
+    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+    --font-body: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
   .dark {
-    --background: 222 22% 8%;
-    --foreground: 210 20% 96%;
+    --background: 33 21% 8%;
+    --foreground: 37 47% 90%;
 
-    --card: 222 20% 11%;
-    --card-foreground: 210 20% 96%;
+    --card: 35 21% 11%;
+    --card-foreground: 37 47% 90%;
 
-    --popover: 222 20% 11%;
-    --popover-foreground: 210 20% 96%;
+    --popover: 35 21% 11%;
+    --popover-foreground: 37 47% 90%;
 
-    --primary: 220 75% 60%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 15 73% 59%;
+    --primary-foreground: 33 21% 8%;
 
-    --secondary: 220 14% 18%;
-    --secondary-foreground: 210 20% 96%;
+    --secondary: 36 22% 14%;
+    --secondary-foreground: 37 47% 90%;
 
-    --muted: 220 14% 18%;
-    --muted-foreground: 220 10% 62%;
+    --muted: 36 22% 14%;
+    --muted-foreground: 37 20% 66%;
 
-    --accent: 220 14% 20%;
-    --accent-foreground: 210 20% 96%;
+    --accent: 36 22% 16%;
+    --accent-foreground: 15 73% 59%;
 
-    --destructive: 0 62% 52%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 9 70% 61%;
+    --destructive-foreground: 33 21% 8%;
 
-    --success: 142 65% 47%;
-    --success-foreground: 0 0% 100%;
+    --success: 85 34% 53%;
+    --success-foreground: 33 21% 8%;
 
-    --warning: 38 92% 55%;
-    --warning-foreground: 222 22% 8%;
+    --warning: 37 71% 57%;
+    --warning-foreground: 33 21% 8%;
 
-    --border: 220 14% 20%;
-    --input: 220 14% 22%;
-    --ring: 220 75% 60%;
+    --info: 205 40% 60%;
+    --info-foreground: 33 21% 8%;
 
-    --sidebar-background: 222 22% 10%;
-    --sidebar-foreground: 210 15% 78%;
-    --sidebar-primary: 220 75% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 18%;
-    --sidebar-accent-foreground: 210 20% 96%;
-    --sidebar-border: 220 14% 18%;
-    --sidebar-ring: 220 75% 60%;
+    --border: 35 22% 17%;
+    --input: 32 20% 19%;
+    --ring: 15 73% 59%;
 
-    --chart-1: 220 75% 60%;
-    --chart-2: 142 65% 50%;
-    --chart-3: 38 92% 55%;
-    --chart-4: 280 65% 65%;
-    --chart-5: 0 72% 58%;
-    --chart-6: 190 80% 55%;
+    --sidebar-background: 33 27% 6%;
+    --sidebar-foreground: 37 20% 66%;
+    --sidebar-primary: 15 73% 59%;
+    --sidebar-primary-foreground: 33 21% 8%;
+    --sidebar-accent: 36 22% 14%;
+    --sidebar-accent-foreground: 15 73% 59%;
+    --sidebar-border: 35 22% 17%;
+    --sidebar-ring: 15 73% 59%;
+
+    --chart-1: 15 73% 59%;
+    --chart-2: 205 40% 60%;
+    --chart-3: 37 71% 57%;
+    --chart-4: 85 34% 53%;
+    --chart-5: 278 29% 67%;
+    --chart-6: 173 34% 53%;
+
+    --glass-bg: 35 21% 13%;
+    --glass-opacity: 0.55;
+    --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.3), 0 4px 16px hsl(0 0% 0% / 0.28);
+    --shadow-lift: 0 8px 30px hsl(0 0% 0% / 0.45);
   }
 }
 
@@ -117,6 +141,82 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--font-body);
+    font-feature-settings: "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* subtle warm paper grain */
+    background-image: radial-gradient(hsl(34 30% 20% / 0.018) 1px, transparent 1px);
+    background-size: 3px 3px;
+  }
+
+  .dark body {
+    background-image: radial-gradient(hsl(40 60% 85% / 0.015) 1px, transparent 1px);
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    font-optical-sizing: auto;
+    letter-spacing: -0.015em;
+  }
+}
+
+@layer components {
+  /* Frosted glass surface (shines in dark mode) */
+  .glass {
+    background-color: hsl(var(--glass-bg) / var(--glass-opacity));
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid hsl(var(--border) / 0.7);
+  }
+
+  /* Soft elevated card */
+  .card-soft {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-soft);
+    border-radius: 1rem;
+  }
+
+  .lift {
+    transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.25s ease;
+  }
+  .lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lift);
+  }
+
+  /* Status gradient heroes (green → amber → red by state) */
+  .hero-good {
+    background-image: linear-gradient(135deg, hsl(91 38% 42%), hsl(150 30% 34%));
+    color: #fff;
+  }
+  .hero-warn {
+    background-image: linear-gradient(135deg, hsl(37 80% 52%), hsl(22 75% 48%));
+    color: #fff;
+  }
+  .hero-bad {
+    background-image: linear-gradient(135deg, hsl(9 68% 52%), hsl(348 55% 42%));
+    color: #fff;
+  }
+  .hero-brand {
+    background-image: linear-gradient(135deg, hsl(15 70% 52%), hsl(28 65% 46%));
+    color: #fff;
+  }
+
+  /* Numerals: muted cents */
+  .cents { opacity: 0.55; font-weight: 500; }
+}
+
+@layer utilities {
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  @keyframes reveal-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .reveal {
+    opacity: 0;
+    animation: reveal-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
   }
 }

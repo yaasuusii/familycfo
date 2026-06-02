@@ -114,7 +114,10 @@ export default function GroceryTracker() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Grocery Tracker</h2>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Family CFO</p>
+          <h2 className="font-display text-3xl font-semibold tracking-tight">Grocery Tracker</h2>
+        </div>
         <Link
           to="/meal-planner"
           className="inline-flex items-center gap-1 text-sm text-primary hover:underline"

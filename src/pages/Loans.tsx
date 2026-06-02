@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Money, StatHeroCard, Reveal, type HeroState } from "@/components/finance";
 import { toast } from "sonner";
-import { Plus, AlertTriangle, ShieldAlert } from "lucide-react";
+import { Plus, AlertTriangle, ShieldAlert, Landmark, HandCoins, Scale } from "lucide-react";
 
 function isOverdue(loan: { end_date: string | null; status: string }) {
   if (!loan.end_date || loan.status === "closed") return false;
@@ -48,6 +49,13 @@ export default function Loans() {
 
   const hasOverdue = loans.some(isOverdue);
   const hasDueSoon = loans.some(isDueSoon);
+
+  const activeTaken = takenLoans.filter((l) => l.status === "active");
+  const activeGiven = givenLoans.filter((l) => l.status === "active");
+  const totalDebt = activeTaken.reduce((s, l) => s + Number(l.remaining_balance), 0);
+  const totalReceivable = activeGiven.reduce((s, l) => s + Number(l.remaining_balance), 0);
+  const netPosition = totalReceivable - totalDebt;
+  const netState: HeroState = netPosition >= 0 ? "good" : "bad";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,26 +93,26 @@ export default function Loans() {
         <div
           key={l.id}
           onClick={() => navigate(`/loans/${l.id}`)}
-          className={`cursor-pointer rounded-lg border p-3 ${isOverdue(l) ? "border-destructive/40 bg-destructive/10" : "bg-card"}`}
+          className={`card-soft lift cursor-pointer p-4 ${isOverdue(l) ? "border-destructive/40" : ""}`}
         >
           <div className="flex items-start justify-between gap-2">
-            <p className="font-medium">{l.lender_or_borrower_name}</p>
+            <p className="font-display font-semibold text-foreground">{l.lender_or_borrower_name}</p>
             <Badge variant={l.status === "active" ? (isOverdue(l) ? "destructive" : "default") : "secondary"}>
               {isOverdue(l) ? "Overdue" : l.status}
             </Badge>
           </div>
-          <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+          <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
             <div>
               <p className="text-muted-foreground">Principal</p>
-              <p className="font-medium">{formatETB(Number(l.principal_amount))}</p>
+              <Money amount={Number(l.principal_amount)} hideCents className="text-sm text-foreground" />
             </div>
             <div>
               <p className="text-muted-foreground">Total Due</p>
-              <p className="font-medium">{formatETB(Number(l.total_amount_due))}</p>
+              <Money amount={Number(l.total_amount_due)} hideCents className="text-sm text-foreground" />
             </div>
             <div>
               <p className="text-muted-foreground">Remaining</p>
-              <p className="font-medium">{formatETB(Number(l.remaining_balance))}</p>
+              <Money amount={Number(l.remaining_balance)} hideCents className="text-sm text-foreground" />
             </div>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">End date: {l.end_date || "—"}</p>
@@ -136,9 +144,9 @@ export default function Loans() {
             onClick={() => navigate(`/loans/${l.id}`)}
           >
             <TableCell className="font-medium">{l.lender_or_borrower_name}</TableCell>
-            <TableCell>{formatETB(Number(l.principal_amount))}</TableCell>
-            <TableCell>{formatETB(Number(l.total_amount_due))}</TableCell>
-            <TableCell>{formatETB(Number(l.remaining_balance))}</TableCell>
+            <TableCell><Money amount={Number(l.principal_amount)} hideCents /></TableCell>
+            <TableCell><Money amount={Number(l.total_amount_due)} hideCents /></TableCell>
+            <TableCell><Money amount={Number(l.remaining_balance)} hideCents /></TableCell>
             <TableCell>{l.end_date || "—"}</TableCell>
             <TableCell>
               <Badge variant={l.status === "active" ? (isOverdue(l) ? "destructive" : "default") : "secondary"}>
@@ -172,7 +180,11 @@ export default function Loans() {
       )}
 
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Loans</h2>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Family CFO</p>
+          <h2 className="font-display text-3xl font-semibold tracking-tight">Loans</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{activeTaken.length + activeGiven.length} active positions</p>
+        </div>
         {role === "admin" && (
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -233,6 +245,16 @@ export default function Loans() {
           </Dialog>
         )}
       </div>
+
+      {loans.length > 0 && (
+        <Reveal>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <StatHeroCard state="bad" label="Total Debt" amount={totalDebt} icon={Landmark} subtitle={`${activeTaken.length} loans taken`} />
+            <StatHeroCard state="good" label="Total Receivable" amount={totalReceivable} icon={HandCoins} subtitle={`${activeGiven.length} loans given`} />
+            <StatHeroCard state={netState} label="Net Position" amount={netPosition} icon={Scale} subtitle={netPosition >= 0 ? "Net asset" : "Net liability"} />
+          </div>
+        </Reveal>
+      )}
 
       <Tabs defaultValue="taken">
         <TabsList>

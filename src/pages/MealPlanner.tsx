@@ -214,10 +214,11 @@ export default function MealPlanner() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <UtensilsCrossed className="h-6 w-6" /> Meal Planner
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Family CFO</p>
+          <h2 className="flex items-center gap-2 font-display text-3xl font-semibold tracking-tight">
+            <UtensilsCrossed className="h-6 w-6 text-primary" /> Meal Planner
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="mt-0.5 text-sm text-muted-foreground">
             {filledCount}/{totalSlots} meals planned this week
           </p>
         </div>

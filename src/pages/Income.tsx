@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIncome, useProfiles, getCurrentMonth } from "@/hooks/useFinanceData";
 import { formatETB } from "@/lib/format";
+import { Money, StatHeroCard, Reveal } from "@/components/finance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -162,7 +163,11 @@ export default function Income() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Income</h2>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Family CFO</p>
+          <h2 className="font-display text-3xl font-semibold tracking-tight">Income</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{income.length} {income.length === 1 ? "entry" : "entries"} this month</p>
+        </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="hidden md:inline-flex"><Plus className="mr-2 h-4 w-4" />Add Income</Button>
@@ -303,12 +308,21 @@ export default function Income() {
         </Select>
       </div>
 
+      <Reveal>
+        <StatHeroCard
+          state="good"
+          label="Income this month"
+          amount={totalFiltered - filtered.filter(i => i.is_self_transfer).reduce((s, i) => s + Number(i.amount), 0)}
+          subtitle={hasTransfers ? `${formatETB(transferTotal)} in self-transfers excluded` : `${filtered.length} ${filtered.length === 1 ? "entry" : "entries"}`}
+        />
+      </Reveal>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span>Total: {formatETB(totalFiltered)}</span>
+                <span>Total: <Money amount={totalFiltered} className="text-base" /></span>
                 {hasTransfers && !hideTransfers && (
                   <span className="text-sm font-normal text-muted-foreground">
                     (Real: {formatETB(totalFiltered - filtered.filter(i => i.is_self_transfer).reduce((s, i) => s + Number(i.amount), 0))})
@@ -369,7 +383,7 @@ export default function Income() {
                     )}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <span className="font-semibold">{formatETB(Number(i.amount))}</span>
+                    <Money amount={Number(i.amount)} className="font-semibold text-foreground" />
                     {i.user_id === user?.id && (
                       <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleDelete(i.id)} aria-label="Delete income">
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -531,7 +545,7 @@ export default function Income() {
                       <SourceBadge source={i.source} />
                     )}
                   </TableCell>
-                  <TableCell className="font-medium">{formatETB(Number(i.amount))}</TableCell>
+                  <TableCell className="font-medium"><Money amount={Number(i.amount)} /></TableCell>
                   <TableCell><PaymentBadge method={i.payment_method} /></TableCell>
                   <TableCell>{getUserName(i.user_id)}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">

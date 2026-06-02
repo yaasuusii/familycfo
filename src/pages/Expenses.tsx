@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useExpenses, useCategories, useCategoryRules, useProfiles, getCurrentMonth } from "@/hooks/useFinanceData";
 import { formatETB } from "@/lib/format";
+import { Money, StatHeroCard, Reveal } from "@/components/finance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -261,7 +262,11 @@ export default function Expenses() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Expenses</h2>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Family CFO</p>
+          <h2 className="font-display text-3xl font-semibold tracking-tight">Expenses</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{expenses.length} {expenses.length === 1 ? "entry" : "entries"} this month</p>
+        </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="hidden md:inline-flex"><Plus className="mr-2 h-4 w-4" />Add Expense</Button>
@@ -416,12 +421,21 @@ export default function Expenses() {
         </Select>
       </div>
 
+      <Reveal>
+        <StatHeroCard
+          state="bad"
+          label="Spending this month"
+          amount={totalFiltered - filtered.filter(e => e.is_self_transfer).reduce((s, e) => s + Number(e.amount), 0)}
+          subtitle={hasTransfers ? `${formatETB(transferTotal)} in self-transfers excluded` : `${filtered.length} ${filtered.length === 1 ? "entry" : "entries"}`}
+        />
+      </Reveal>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <span>Total: {formatETB(totalFiltered)}</span>
+                <span>Total: <Money amount={totalFiltered} className="text-base" /></span>
                 {hasTransfers && !hideTransfers && (
                   <span className="text-sm font-normal text-muted-foreground">
                     (Real: {formatETB(totalFiltered - filtered.filter(e => e.is_self_transfer).reduce((s, e) => s + Number(e.amount), 0))})
@@ -482,7 +496,7 @@ export default function Expenses() {
                     )}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <span className="font-semibold">{formatETB(Number(e.amount))}</span>
+                    <Money amount={Number(e.amount)} className="font-semibold text-foreground" />
                     {e.user_id === user?.id && (
                       <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleDelete(e.id)} aria-label="Delete expense">
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -644,7 +658,7 @@ export default function Expenses() {
                       e.category
                     )}
                   </TableCell>
-                  <TableCell className="font-medium">{formatETB(Number(e.amount))}</TableCell>
+                  <TableCell className="font-medium"><Money amount={Number(e.amount)} /></TableCell>
                   <TableCell><PaymentBadge method={e.payment_method} /></TableCell>
                   <TableCell>{getUserName(e.user_id)}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">

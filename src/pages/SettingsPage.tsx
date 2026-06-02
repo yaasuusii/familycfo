@@ -51,7 +51,10 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Settings</h2>
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Family CFO</p>
+        <h2 className="font-display text-3xl font-semibold tracking-tight">Settings</h2>
+      </div>
 
       {/* Categories */}
       <Card>

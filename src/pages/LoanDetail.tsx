@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLoan, useLoanRepayments, useCreateRepayment } from "@/hooks/useLoanData";
 import { formatETB, formatPercent } from "@/lib/format";
+import { Money } from "@/components/finance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,7 +61,7 @@ export default function LoanDetail() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate("/loans")}><ArrowLeft className="h-4 w-4" /></Button>
-        <h2 className="text-2xl font-bold">{loan.lender_or_borrower_name}</h2>
+        <h2 className="font-display text-2xl font-semibold tracking-tight">{loan.lender_or_borrower_name}</h2>
         <Badge variant={loan.status === "active" ? (isOverdue ? "destructive" : "default") : "secondary"}>
           {isOverdue ? "Overdue" : loan.status}
         </Badge>
@@ -68,10 +69,10 @@ export default function LoanDetail() {
 
       {/* Summary */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Principal</p><p className="text-lg font-semibold">{formatETB(principal)}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Interest ({loan.interest_rate ? `${loan.interest_rate}%` : "0%"})</p><p className="text-lg font-semibold">{formatETB(interestPortion)}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Total Due</p><p className="text-lg font-semibold">{formatETB(totalDue)}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Remaining</p><p className={`text-lg font-semibold ${remaining > 0 ? "text-destructive" : "text-success"}`}>{formatETB(remaining)}</p></CardContent></Card>
+        <div className="card-soft lift p-4"><p className="text-xs uppercase tracking-wide text-muted-foreground">Principal</p><Money amount={principal} className="mt-1 block text-lg text-foreground" /></div>
+        <div className="card-soft lift p-4"><p className="text-xs uppercase tracking-wide text-muted-foreground">Interest ({loan.interest_rate ? `${loan.interest_rate}%` : "0%"})</p><Money amount={interestPortion} className="mt-1 block text-lg text-foreground" /></div>
+        <div className="card-soft lift p-4"><p className="text-xs uppercase tracking-wide text-muted-foreground">Total Due</p><Money amount={totalDue} className="mt-1 block text-lg text-foreground" /></div>
+        <div className="card-soft lift p-4"><p className="text-xs uppercase tracking-wide text-muted-foreground">Remaining</p><Money amount={remaining} className={`mt-1 block text-lg ${remaining > 0 ? "text-destructive" : "text-success"}`} /></div>
       </div>
 
       {/* Progress */}

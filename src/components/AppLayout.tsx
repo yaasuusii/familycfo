@@ -33,9 +33,9 @@ export function AppLayout() {
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <main className="flex-1 overflow-auto">
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:px-6">
+          <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border/70 glass px-4 md:px-6">
             <SidebarTrigger className="hidden md:flex" />
-            <h1 className="flex-1 truncate text-lg font-semibold text-foreground">{title}</h1>
+            <h1 className="flex-1 truncate font-display text-lg font-semibold tracking-tight text-foreground">{title}</h1>
             <ThemeToggle />
           </header>
           <div className="p-4 pb-24 md:p-6 md:pb-6">

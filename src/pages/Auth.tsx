@@ -55,13 +55,18 @@ export default function Auth() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md shadow-lg">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
+      {/* warm editorial atmosphere */}
+      <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-primary/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 -right-16 h-80 w-80 rounded-full bg-[hsl(var(--info))]/12 blur-3xl" />
+
+      <Card className="reveal card-soft relative w-full max-w-md border-0 shadow-[var(--shadow-lift)]">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
-            <Wallet className="h-6 w-6 text-primary-foreground" />
+          <div className="hero-brand mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl shadow-[var(--shadow-lift)]">
+            <Wallet className="h-7 w-7 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold">Household Finance</CardTitle>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Family CFO</p>
+          <CardTitle className="font-display text-2xl font-semibold tracking-tight">Household Finance</CardTitle>
           <CardDescription>Manage your family finances together</CardDescription>
         </CardHeader>
         <CardContent>
