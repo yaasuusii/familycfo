@@ -11,7 +11,6 @@ import {
   RadialGauge,
   DonutStat,
   TrendArea,
-  BudgetCategoryCard,
   ListRow,
   Reveal,
   SectionHeader,
@@ -105,14 +104,6 @@ export default function Dashboard() {
     .filter((b) => b.pct < 100)
     .reduce((s, b) => s + Math.max(b.remaining, 0), 0);
   const safeToSpend = totalIncome - totalExpenses - remainingReserved;
-
-  const categoryData = useMemo(() => {
-    const map: Record<string, number> = {};
-    expenses.forEach((e) => { map[e.category] = (map[e.category] || 0) + Number(e.amount); });
-    return Object.entries(map)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [expenses]);
 
   const dailyTrend = useMemo(() => {
     const map: Record<string, number> = {};
@@ -299,9 +290,9 @@ export default function Dashboard() {
         </div>
       </Reveal>
 
-      {/* ── Budget ring + Savings donut ── */}
+      {/* ── Budget ring + cash flow ── */}
       {budgetStats.length > 0 && (
-        <Reveal index={4}>
+        <Reveal index={5}>
           <div className="grid gap-4 lg:grid-cols-2">
             <Panel className="flex items-center gap-5">
               <RadialGauge value={overallBudgetPct} caption="used" />
@@ -313,9 +304,9 @@ export default function Dashboard() {
               </div>
             </Panel>
             <Panel>
-              <SectionHeader title="Cash Flow" caption="This month" className="mb-3" />
+              <SectionHeader title="Cash Flow" caption="Saved vs spent" className="mb-3" />
               <DonutStat
-                size={150}
+                size={isMobile ? 160 : 170}
                 thickness={20}
                 centerValue={formatPercent(savingsRate)}
                 centerLabel="saved"
@@ -330,55 +321,17 @@ export default function Dashboard() {
         </Reveal>
       )}
 
-      {/* ── Spending trend + expense breakdown ── */}
-      <Reveal index={5}>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Panel>
-            <SectionHeader title="Daily Spending" caption="Trend this month" className="mb-3" />
-            {dailyTrend.length > 0 ? (
-              <TrendArea data={dailyTrend} xKey="date" yKey="amount" formatValue={(v) => `${(v / 1000).toFixed(0)}k`} />
-            ) : (
-              <Empty>No spending recorded yet</Empty>
-            )}
-          </Panel>
-          <Panel>
-            <SectionHeader title="Where it goes" caption="By category" className="mb-3" />
-            {categoryData.length > 0 ? (
-              <DonutStat
-                size={isMobile ? 160 : 170}
-                centerValue={formatETB(totalExpenses)}
-                centerLabel="spent"
-                formatValue={(v) => formatETB(v)}
-                data={categoryData.slice(0, 6)}
-              />
-            ) : (
-              <Empty>No expenses yet</Empty>
-            )}
-          </Panel>
-        </div>
+      {/* ── Daily spending trend (full width) ── */}
+      <Reveal index={6}>
+        <Panel>
+          <SectionHeader title="Daily Spending" caption={`Trend · ${ethMonthLabel}`} className="mb-3" />
+          {dailyTrend.length > 0 ? (
+            <TrendArea data={dailyTrend} xKey="date" yKey="amount" formatValue={(v) => `${(v / 1000).toFixed(0)}k`} />
+          ) : (
+            <Empty>No spending recorded yet</Empty>
+          )}
+        </Panel>
       </Reveal>
-
-      {/* ── Category budget cards (Dribbble-style) ── */}
-      {budgetStats.length > 0 && (
-        <Reveal index={6} className="space-y-3">
-          <SectionHeader title="Category Budgets" caption={`${budgetStats.length} tracked`} action={
-            <Link to="/budgets" className="flex items-center gap-0.5 text-xs font-medium text-primary hover:underline">
-              Manage <ChevronRight className="h-3 w-3" />
-            </Link>
-          } />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {budgetStats.map((b) => (
-              <BudgetCategoryCard
-                key={b.category}
-                category={b.category}
-                spent={b.actual}
-                limit={b.limit}
-                icon={CATEGORY_ICONS[b.category] ?? Wallet}
-              />
-            ))}
-          </div>
-        </Reveal>
-      )}
 
       {/* ── Loans overview ── */}
       {allLoans.length > 0 && (
