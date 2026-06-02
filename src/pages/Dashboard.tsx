@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,7 +16,9 @@ import {
   Reveal,
   SectionHeader,
   Panel,
+  NotificationBar,
   type HeroState,
+  type AlertItem,
 } from "@/components/finance";
 import { useIncome, useExpenses, useBudgets, getCurrentMonth } from "@/hooks/useFinanceData";
 import { useLoans } from "@/hooks/useLoanData";
@@ -27,7 +28,7 @@ import { formatETB, formatPercent } from "@/lib/format";
 import { getCurrentEthiopianMonth, getEthiopianMonthName, getEthiopianDaysInMonth } from "@/lib/ethiopian-calendar";
 import {
   TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target,
-  ShieldAlert, AlertTriangle, Landmark, HandCoins, Scale, RefreshCw,
+  AlertTriangle, Landmark, HandCoins, Scale, RefreshCw,
   UtensilsCrossed, Baby, ChevronRight, ArrowUpRight,
 } from "lucide-react";
 
@@ -135,6 +136,13 @@ export default function Dashboard() {
   const spendState: HeroState = safeToSpend < 0 ? "bad" : safeToSpend < totalIncome * 0.1 ? "warn" : "good";
   const budgetState: HeroState = anyExceeded ? "bad" : overallWarning ? "warn" : "good";
 
+  // Collapsed notification bar feed
+  const alerts: AlertItem[] = [];
+  if (anyExceeded) alerts.push({ severity: "critical", message: "One or more budget categories have been exceeded." });
+  else if (overallWarning) alerts.push({ severity: "warning", message: `Overall budget usage is above 90% (${formatPercent(overallBudgetPct)}).` });
+  if (hasOverdueLoan) alerts.push({ severity: "critical", message: "One or more loans are overdue." });
+  else if (hasDueSoonLoan) alerts.push({ severity: "warning", message: "Loan payments due within 5 days." });
+
   if (incomeLoading || expensesLoading) {
     return (
       <div className="space-y-6">
@@ -160,6 +168,13 @@ export default function Dashboard() {
   return (
     <div className="space-y-7">
       {/* ── Masthead ── */}
+      {/* ── Notification bar ── */}
+      {alerts.length > 0 && (
+        <Reveal index={0}>
+          <NotificationBar alerts={alerts} />
+        </Reveal>
+      )}
+
       <Reveal index={0}>
         <div className="flex items-end justify-between gap-3">
           <div>
@@ -175,36 +190,6 @@ export default function Dashboard() {
           </div>
         </div>
       </Reveal>
-
-      {/* ── Alert banners ── */}
-      {(anyExceeded || (!anyExceeded && overallWarning) || hasOverdueLoan || (!hasOverdueLoan && hasDueSoonLoan)) && (
-        <Reveal index={1} className="space-y-2">
-          {anyExceeded && (
-            <Alert variant="destructive" className="rounded-xl">
-              <ShieldAlert className="h-4 w-4" />
-              <AlertDescription>One or more budget categories have been exceeded.</AlertDescription>
-            </Alert>
-          )}
-          {!anyExceeded && overallWarning && (
-            <Alert className="rounded-xl border-warning/50 text-warning [&>svg]:text-warning">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>Overall budget usage is above 90% ({formatPercent(overallBudgetPct)}).</AlertDescription>
-            </Alert>
-          )}
-          {hasOverdueLoan && (
-            <Alert variant="destructive" className="rounded-xl">
-              <ShieldAlert className="h-4 w-4" />
-              <AlertDescription>One or more loans are overdue.</AlertDescription>
-            </Alert>
-          )}
-          {!hasOverdueLoan && hasDueSoonLoan && (
-            <Alert className="rounded-xl border-warning/50 text-warning [&>svg]:text-warning">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>Loan payments due within 5 days.</AlertDescription>
-            </Alert>
-          )}
-        </Reveal>
-      )}
 
       {/* ── Signature hero pair ── */}
       <Reveal index={2}>
@@ -238,6 +223,79 @@ export default function Dashboard() {
           <MiniStat label="Expenses" amount={totalExpenses} icon={TrendingDown} tint="hsl(var(--destructive))" />
           <MiniStat label="Remaining" amount={remaining} icon={PiggyBank} tint="hsl(var(--primary))" />
           <MiniStat label="Projected" amount={projectedRemaining} icon={Target} tint="hsl(var(--info))" />
+        </div>
+      </Reveal>
+
+      {/* ── Today's Meals (upper — checked daily) ── */}
+      <Reveal index={4}>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Panel>
+            <div className="flex items-start justify-between">
+              <SectionHeader title="Today's Meals" caption={trimesterInfo ? `Trimester ${trimesterInfo.trimester} · Week ${trimesterInfo.weeksPregnant}` : "Planned for today"} />
+              <Link to="/meal-planner" className="flex items-center gap-0.5 text-xs font-medium text-primary hover:underline">
+                Planner <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+            {trimesterInfo && (
+              <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                <Baby className="h-3 w-3 text-primary" /> Pregnancy nutrition tracking on
+              </p>
+            )}
+            <div className="mt-3 space-y-1.5">
+              {todayMeals.length === 0 ? (
+                <p className="py-2 text-sm text-muted-foreground">
+                  No meals planned. <Link to="/meal-planner" className="text-primary hover:underline">Plan now</Link>
+                </p>
+              ) : (
+                MEAL_TYPES.map((slot) => {
+                  const meal = todayMeals.find((m: any) => m.meal_type === slot.key);
+                  return (
+                    <div key={slot.key} className="flex items-center justify-between border-b py-1.5 text-sm last:border-0">
+                      <span className="w-16 text-xs uppercase tracking-wide text-muted-foreground">{slot.short}</span>
+                      <span className={`flex-1 ${meal ? "font-medium text-foreground" : "italic text-muted-foreground"}`}>
+                        {meal ? meal.name : "—"}
+                      </span>
+                      {meal?.estimated_cost && <Money amount={Number(meal.estimated_cost)} hideCents className="text-xs text-muted-foreground" />}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            {todayMeals.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1">
+                {NUTRIENTS.map((n) => (
+                  <Badge
+                    key={n.key}
+                    variant={todayNutrients.has(n.key) ? "default" : "outline"}
+                    className={`px-1.5 py-0 text-[10px] ${todayNutrients.has(n.key) ? "bg-success text-success-foreground" : "opacity-50"}`}
+                  >
+                    {n.emoji} {n.label}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </Panel>
+
+          <Panel>
+            <SectionHeader title="This Week's Plan" caption="Meal coverage" className="mb-3" />
+            {allMeals.length === 0 ? (
+              <p className="py-2 text-sm text-muted-foreground">
+                No meal plan yet. <Link to="/meal-planner" className="text-primary hover:underline">Generate one</Link>
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <div className="mb-1 flex justify-between text-sm">
+                    <span className="text-muted-foreground">Meals planned</span>
+                    <span className="tnum font-medium text-foreground">{allMeals.length}/35</span>
+                  </div>
+                  <Progress value={(allMeals.length / 35) * 100} className="h-2" />
+                </div>
+                <Row label="Est. weekly cost" value={<Money amount={allMeals.reduce((s: number, m: any) => s + Number(m.estimated_cost || 0), 0)} className="text-sm" />} />
+                <Row label="Nutrition today" value={<span className="tnum font-medium">{todayNutrients.size}/{NUTRIENTS.length}</span>} />
+              </div>
+            )}
+          </Panel>
         </div>
       </Reveal>
 
@@ -419,78 +477,6 @@ export default function Dashboard() {
         </div>
       </Reveal>
 
-      {/* ── Meals ── */}
-      <Reveal index={9}>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Panel>
-            <div className="flex items-start justify-between">
-              <SectionHeader title="Today's Meals" caption={trimesterInfo ? `Trimester ${trimesterInfo.trimester} · Week ${trimesterInfo.weeksPregnant}` : "Planned for today"} />
-              <Link to="/meal-planner" className="flex items-center gap-0.5 text-xs font-medium text-primary hover:underline">
-                Planner <ChevronRight className="h-3 w-3" />
-              </Link>
-            </div>
-            {trimesterInfo && (
-              <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                <Baby className="h-3 w-3 text-primary" /> Pregnancy nutrition tracking on
-              </p>
-            )}
-            <div className="mt-3 space-y-1.5">
-              {todayMeals.length === 0 ? (
-                <p className="py-2 text-sm text-muted-foreground">
-                  No meals planned. <Link to="/meal-planner" className="text-primary hover:underline">Plan now</Link>
-                </p>
-              ) : (
-                MEAL_TYPES.map((slot) => {
-                  const meal = todayMeals.find((m: any) => m.meal_type === slot.key);
-                  return (
-                    <div key={slot.key} className="flex items-center justify-between border-b py-1.5 text-sm last:border-0">
-                      <span className="w-16 text-xs uppercase tracking-wide text-muted-foreground">{slot.short}</span>
-                      <span className={`flex-1 ${meal ? "font-medium text-foreground" : "italic text-muted-foreground"}`}>
-                        {meal ? meal.name : "—"}
-                      </span>
-                      {meal?.estimated_cost && <Money amount={Number(meal.estimated_cost)} hideCents className="text-xs text-muted-foreground" />}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            {todayMeals.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1">
-                {NUTRIENTS.map((n) => (
-                  <Badge
-                    key={n.key}
-                    variant={todayNutrients.has(n.key) ? "default" : "outline"}
-                    className={`px-1.5 py-0 text-[10px] ${todayNutrients.has(n.key) ? "bg-success text-success-foreground" : "opacity-50"}`}
-                  >
-                    {n.emoji} {n.label}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </Panel>
-
-          <Panel>
-            <SectionHeader title="This Week's Plan" caption="Meal coverage" className="mb-3" />
-            {allMeals.length === 0 ? (
-              <p className="py-2 text-sm text-muted-foreground">
-                No meal plan yet. <Link to="/meal-planner" className="text-primary hover:underline">Generate one</Link>
-              </p>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <div className="mb-1 flex justify-between text-sm">
-                    <span className="text-muted-foreground">Meals planned</span>
-                    <span className="tnum font-medium text-foreground">{allMeals.length}/35</span>
-                  </div>
-                  <Progress value={(allMeals.length / 35) * 100} className="h-2" />
-                </div>
-                <Row label="Est. weekly cost" value={<Money amount={allMeals.reduce((s: number, m: any) => s + Number(m.estimated_cost || 0), 0)} className="text-sm" />} />
-                <Row label="Nutrition today" value={<span className="tnum font-medium">{todayNutrients.size}/{NUTRIENTS.length}</span>} />
-              </div>
-            )}
-          </Panel>
-        </div>
-      </Reveal>
     </div>
   );
 }

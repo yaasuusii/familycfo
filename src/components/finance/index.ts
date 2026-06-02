@@ -6,3 +6,4 @@ export { TrendArea } from "./TrendArea";
 export { BudgetCategoryCard } from "./BudgetCategoryCard";
 export { ListRow } from "./ListRow";
 export { Reveal, SectionHeader, Panel } from "./Section";
+export { NotificationBar, type AlertItem, type AlertSeverity } from "./NotificationBar";
