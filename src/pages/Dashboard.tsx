@@ -19,7 +19,8 @@ import {
   type HeroState,
   type AlertItem,
 } from "@/components/finance";
-import { useIncome, useExpenses, useBudgets, getCurrentMonth } from "@/hooks/useFinanceData";
+import { useIncome, useExpenses, useBudgets } from "@/hooks/useFinanceData";
+import { getFinancialPeriod } from "@/lib/finance-period";
 import { useLoans } from "@/hooks/useLoanData";
 import { useUpcomingRecurring } from "@/hooks/useRecurringData";
 import { useMealPlan, useMeals, usePregnancyProfile, getTrimester, getWeekStart, MEAL_TYPES, NUTRIENTS } from "@/hooks/useMealData";
@@ -37,12 +38,12 @@ const CATEGORY_ICONS: Record<string, typeof ShoppingCart> = {
 };
 
 export default function Dashboard() {
-  const month = getCurrentMonth();
+  const period = useMemo(() => getFinancialPeriod(), []);
   const eth = getCurrentEthiopianMonth();
   const isMobile = useIsMobile();
 
-  const { data: income = [], isLoading: incomeLoading } = useIncome(month);
-  const { data: expenses = [], isLoading: expensesLoading } = useExpenses(month);
+  const { data: income = [], isLoading: incomeLoading } = useIncome(period);
+  const { data: expenses = [], isLoading: expensesLoading } = useExpenses(period);
   const { data: budgets = [] } = useBudgets(eth.month, eth.year);
   const { data: allLoans = [] } = useLoans();
   const upcomingItems = useUpcomingRecurring();

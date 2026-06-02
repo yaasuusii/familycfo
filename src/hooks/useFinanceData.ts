@@ -2,16 +2,25 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getCurrentEthMonth, parseEthMonth, getEthiopianMonthDateRange } from "@/lib/ethiopian-calendar";
 
-export function useIncome(ethMonth?: string) {
+export type DateRange = { start: string; end: string };
+
+/** Resolve a period arg to an inclusive Gregorian date range, or null for "all". */
+function resolveRange(period?: string | DateRange): DateRange | null {
+  if (!period) return null;
+  if (typeof period === "string") {
+    const { year, month } = parseEthMonth(period);
+    return getEthiopianMonthDateRange(year, month);
+  }
+  return period;
+}
+
+export function useIncome(period?: string | DateRange) {
   return useQuery({
-    queryKey: ["income", ethMonth],
+    queryKey: ["income", period],
     queryFn: async () => {
       let query = supabase.from("income").select("*").order("date", { ascending: false });
-      if (ethMonth) {
-        const { year, month } = parseEthMonth(ethMonth);
-        const { start, end } = getEthiopianMonthDateRange(year, month);
-        query = query.gte("date", start).lte("date", end);
-      }
+      const range = resolveRange(period);
+      if (range) query = query.gte("date", range.start).lte("date", range.end);
       const { data, error } = await query;
       if (error) throw error;
       return data;
@@ -19,16 +28,13 @@ export function useIncome(ethMonth?: string) {
   });
 }
 
-export function useExpenses(ethMonth?: string) {
+export function useExpenses(period?: string | DateRange) {
   return useQuery({
-    queryKey: ["expenses", ethMonth],
+    queryKey: ["expenses", period],
     queryFn: async () => {
       let query = supabase.from("expenses").select("*").order("date", { ascending: false });
-      if (ethMonth) {
-        const { year, month } = parseEthMonth(ethMonth);
-        const { start, end } = getEthiopianMonthDateRange(year, month);
-        query = query.gte("date", start).lte("date", end);
-      }
+      const range = resolveRange(period);
+      if (range) query = query.gte("date", range.start).lte("date", range.end);
       const { data, error } = await query;
       if (error) throw error;
       return data;

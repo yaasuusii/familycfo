@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useIncome, useProfiles, getCurrentMonth } from "@/hooks/useFinanceData";
+import { useIncome, useProfiles } from "@/hooks/useFinanceData";
+import { getFinancialPeriod } from "@/lib/finance-period";
 import { formatETB } from "@/lib/format";
 import { Money, StatHeroCard, Reveal } from "@/components/finance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,8 +62,8 @@ function PaymentBadge({ method }: { method: string }) {
 export default function Income() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const month = getCurrentMonth();
-  const { data: income = [], isLoading: incomeLoading } = useIncome(month);
+  const period = useMemo(() => getFinancialPeriod(), []);
+  const { data: income = [], isLoading: incomeLoading } = useIncome(period);
   const { data: profiles = [] } = useProfiles();
   const [open, setOpen] = useState(false);
   const [filterSource, setFilterSource] = useState("all");
@@ -167,7 +168,7 @@ export default function Income() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Family CFO</p>
           <h2 className="font-display text-3xl font-semibold tracking-tight">Income</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">{income.length} {income.length === 1 ? "entry" : "entries"} this month</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{period.label} · {income.length} {income.length === 1 ? "entry" : "entries"}</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>

@@ -10,8 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Trash2, UserPlus } from "lucide-react";
+import { Plus, Trash2, UserPlus, CalendarRange } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { loadFinanceSettings, saveFinanceSettings, getFinancialPeriod } from "@/lib/finance-period";
 
 export default function SettingsPage() {
   const { role } = useAuth();
@@ -23,6 +24,19 @@ export default function SettingsPage() {
   const [newCategory, setNewCategory] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
+
+  const [payCycle, setPayCycle] = useState(loadFinanceSettings());
+  const savePayCycle = () => {
+    const startDay = Math.max(1, Math.min(28, Math.round(payCycle.startDay) || 6));
+    const graceDays = Math.max(0, Math.min(startDay - 1, Math.round(payCycle.graceDays) || 0));
+    saveFinanceSettings({ startDay, graceDays });
+    toast.success("Pay cycle saved — reloading");
+    setTimeout(() => window.location.reload(), 700);
+  };
+  const previewPeriod = getFinancialPeriod(new Date(), {
+    startDay: Math.max(1, Math.min(28, Math.round(payCycle.startDay) || 6)),
+    graceDays: Math.max(0, Math.min((Math.round(payCycle.startDay) || 6) - 1, Math.round(payCycle.graceDays) || 0)),
+  });
 
   const addCategory = async () => {
     if (!newCategory.trim()) return;
@@ -55,6 +69,46 @@ export default function SettingsPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Family CFO</p>
         <h2 className="font-display text-3xl font-semibold tracking-tight">Settings</h2>
       </div>
+
+      {/* Pay cycle */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CalendarRange className="h-4 w-4 text-primary" /> Pay Cycle
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Income &amp; expense pages group transactions by your salary month instead of the calendar 1st.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Salary day of month</Label>
+              <Input
+                type="number" min={1} max={28}
+                value={payCycle.startDay}
+                onChange={(e) => setPayCycle((p) => ({ ...p, startDay: Number(e.target.value) }))}
+                disabled={!isAdmin}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Grace days (salary may arrive early)</Label>
+              <Input
+                type="number" min={0} max={27}
+                value={payCycle.graceDays}
+                onChange={(e) => setPayCycle((p) => ({ ...p, graceDays: Number(e.target.value) }))}
+                disabled={!isAdmin}
+              />
+            </div>
+          </div>
+          <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Current period: </span>
+            <span className="font-medium text-foreground">{previewPeriod.label}</span>
+            <span className="text-muted-foreground"> ({previewPeriod.start} → {previewPeriod.end})</span>
+          </div>
+          {isAdmin && <Button onClick={savePayCycle}>Save Pay Cycle</Button>}
+        </CardContent>
+      </Card>
 
       {/* Categories */}
       <Card>

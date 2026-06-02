@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useExpenses, useCategories, useCategoryRules, useProfiles, getCurrentMonth } from "@/hooks/useFinanceData";
+import { useExpenses, useCategories, useCategoryRules, useProfiles } from "@/hooks/useFinanceData";
+import { getFinancialPeriod } from "@/lib/finance-period";
 import { formatETB } from "@/lib/format";
 import { Money, StatHeroCard, Reveal } from "@/components/finance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,8 +44,8 @@ function PaymentBadge({ method }: { method: string }) {
 export default function Expenses() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const month = getCurrentMonth();
-  const { data: expenses = [], isLoading: expensesLoading } = useExpenses(month);
+  const period = useMemo(() => getFinancialPeriod(), []);
+  const { data: expenses = [], isLoading: expensesLoading } = useExpenses(period);
   const { data: categories = [] } = useCategories();
   const { data: categoryRules = [] } = useCategoryRules();
   const { data: profiles = [] } = useProfiles();
@@ -265,7 +266,7 @@ export default function Expenses() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Family CFO</p>
           <h2 className="font-display text-3xl font-semibold tracking-tight">Expenses</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">{expenses.length} {expenses.length === 1 ? "entry" : "entries"} this month</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{period.label} · {expenses.length} {expenses.length === 1 ? "entry" : "entries"}</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
