@@ -390,7 +390,7 @@ export default function Dashboard() {
                     key={e.id}
                     icon={CATEGORY_ICONS[e.category] ?? ShoppingCart}
                     accent="hsl(var(--primary))"
-                    title={e.description || e.category}
+                    title={e.notes || e.category}
                     subtitle={e.category}
                     amount={Number(e.amount)}
                     sign="-"
