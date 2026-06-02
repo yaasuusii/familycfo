@@ -20,13 +20,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Plus, Trash2, X, ListFilter, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeftRight } from "lucide-react";
 
-const INCOME_SOURCES = ["Salary", "Business", "Other"] as const;
+const INCOME_SOURCES = ["Salary", "Business", "Loan Taken", "Other"] as const;
 type IncomeSource = typeof INCOME_SOURCES[number];
 
 const SOURCE_BADGE: Record<IncomeSource, string> = {
-  Salary:   "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
-  Business: "bg-blue-100    text-blue-800    dark:bg-blue-900/40    dark:text-blue-300",
-  Other:    "bg-gray-100    text-gray-800    dark:bg-gray-800/40    dark:text-gray-300",
+  Salary:       "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+  Business:     "bg-blue-100    text-blue-800    dark:bg-blue-900/40    dark:text-blue-300",
+  "Loan Taken": "bg-amber-100   text-amber-800   dark:bg-amber-900/40   dark:text-amber-300",
+  Other:        "bg-gray-100    text-gray-800    dark:bg-gray-800/40    dark:text-gray-300",
 };
 
 function SourceBadge({ source }: { source: string }) {
@@ -69,7 +70,7 @@ export default function Income() {
   const [filterPayment, setFilterPayment] = useState("all");
   const [sortAmount, setSortAmount] = useState<"none" | "asc" | "desc">("none");
   const [hideTransfers, setHideTransfers] = useState(false);
-  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), source: "Salary", amount: "", payment_method: "127", notes: "", is_self_transfer: false });
+  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), source: "Salary", amount: "", payment_method: "CBE", notes: "", is_self_transfer: false });
   const [submitting, setSubmitting] = useState(false);
 
   const activeFilterCount = [filterSource, filterUser, filterPayment].filter((f) => f !== "all").length;
@@ -113,7 +114,7 @@ export default function Income() {
       if (error) { toast.error(error.message); return; }
       toast.success("Income added");
       setOpen(false);
-      setForm({ date: new Date().toISOString().slice(0, 10), source: "Salary", amount: "", payment_method: "127", notes: "", is_self_transfer: false });
+      setForm({ date: new Date().toISOString().slice(0, 10), source: "Salary", amount: "", payment_method: "CBE", notes: "", is_self_transfer: false });
       queryClient.invalidateQueries({ queryKey: ["income"] });
     } finally {
       setSubmitting(false);
@@ -191,6 +192,7 @@ export default function Income() {
                             <SourceBadge source={s} />
                             {s === "Salary" && "Monthly salary"}
                             {s === "Business" && "Business income"}
+                            {s === "Loan Taken" && "Borrowed / loan received"}
                             {s === "Other" && "Other source"}
                           </span>
                         </SelectItem>
