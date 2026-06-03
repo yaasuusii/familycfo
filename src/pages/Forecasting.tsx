@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useIncome, useExpenses } from "@/hooks/useFinanceData";
 import { useUpcomingRecurringForMonth } from "@/hooks/useRecurringData";
 import { useFinancialInsights } from "@/hooks/useFinancialInsights";
-import { getFinancialPeriod } from "@/lib/finance-period";
+import { getFinancialPeriod, projectPeriod } from "@/lib/finance-period";
 import { incomeBreakdown, expenseBreakdown } from "@/lib/finance-calc";
 import { formatETB } from "@/lib/format";
 import {
@@ -23,18 +23,9 @@ export default function Forecasting() {
   const totalIncome = useMemo(() => incomeBreakdown(income).real, [income]);
   const totalExpenses = useMemo(() => expenseBreakdown(expenses).real, [expenses]);
 
-  // Day math over the pay-cycle window.
-  const MS_DAY = 86400000;
-  const start = new Date(period.start + "T00:00:00");
-  const end = new Date(period.end + "T00:00:00");
-  const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00");
-  const daysInMonth = Math.round((end.getTime() - start.getTime()) / MS_DAY) + 1;
-  const dayOfMonth = Math.min(Math.max(Math.floor((today.getTime() - start.getTime()) / MS_DAY) + 1, 1), daysInMonth);
-  const daysRemaining = daysInMonth - dayOfMonth;
-
-  const dailyRate = dayOfMonth > 0 ? totalExpenses / dayOfMonth : 0;
-  const projectedTotal = dailyRate * daysInMonth;
-  const adjustedProjectedBalance = (totalIncome + upcomingIncome) - (projectedTotal + upcomingExpenses);
+  // Shared projection — Dashboard uses the same helper so numbers can't drift.
+  const { daysInMonth, dayOfMonth, daysRemaining, dailyRate, projectedExpenses: projectedTotal, projectedBalance: adjustedProjectedBalance } =
+    projectPeriod(period, totalIncome, totalExpenses, upcomingIncome, upcomingExpenses);
   const safeToSpend = daysRemaining > 0 ? Math.max(0, (totalIncome - totalExpenses) / daysRemaining) : 0;
 
   const ethMonthLabel = period.label;

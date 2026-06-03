@@ -18,16 +18,16 @@ import {
   type HeroState,
 } from "@/components/finance";
 import { useIncome, useExpenses, useBudgets } from "@/hooks/useFinanceData";
-import { getFinancialPeriod, shiftPeriod } from "@/lib/finance-period";
+import { getFinancialPeriod, shiftPeriod, projectPeriod } from "@/lib/finance-period";
 import { incomeBreakdown, expenseBreakdown, realExpenses } from "@/lib/finance-calc";
 import { loadHouseholdSize } from "@/lib/household";
 import { useLoans } from "@/hooks/useLoanData";
-import { useUpcomingRecurring } from "@/hooks/useRecurringData";
+import { useUpcomingRecurring, useUpcomingRecurringForMonth } from "@/hooks/useRecurringData";
 import { useMealPlan, useMeals, usePregnancyProfile, getTrimester, getWeekStart, MEAL_TYPES, NUTRIENTS } from "@/hooks/useMealData";
 import { useCachedForecast } from "@/hooks/useFinancialInsights";
 import { SavingsGoalsCard } from "@/components/SavingsGoalsCard";
 import { formatETB, formatPercent } from "@/lib/format";
-import { getCurrentEthiopianMonth, getCurrentEthMonth, getEthiopianMonthName, getEthiopianDaysInMonth } from "@/lib/ethiopian-calendar";
+import { getCurrentEthiopianMonth, getCurrentEthMonth, getEthiopianMonthName } from "@/lib/ethiopian-calendar";
 import {
   TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target,
   AlertTriangle, Landmark, HandCoins, Scale, RefreshCw,
@@ -138,10 +138,10 @@ export default function Dashboard() {
     [expenses]
   );
 
-  const dayOfMonth = eth.day;
-  const daysInMonth = getEthiopianDaysInMonth(eth.month, eth.year);
-  const projectedExpenses = dayOfMonth > 0 ? (totalExpenses / dayOfMonth) * daysInMonth : 0;
-  const projectedRemaining = totalIncome - projectedExpenses;
+  // Shared projection — Forecasting uses the same helper so numbers can't drift.
+  const { upcomingIncome, upcomingExpenses } = useUpcomingRecurringForMonth();
+  const { dayOfMonth, daysInMonth, projectedBalance: projectedRemaining } =
+    projectPeriod(period, totalIncome, totalExpenses, upcomingIncome, upcomingExpenses);
 
   const ethMonthLabel = `${getEthiopianMonthName(eth.month)} ${eth.year}`;
 

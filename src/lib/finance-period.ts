@@ -94,6 +94,55 @@ export function getFinancialPeriod(
   return { start, end: endIso, label };
 }
 
+export interface PeriodProjection {
+  /** total days in the pay-cycle window */
+  daysInMonth: number;
+  /** elapsed days through today, clamped to [1, daysInMonth] */
+  dayOfMonth: number;
+  /** days left in the window */
+  daysRemaining: number;
+  /** average real spend per elapsed day */
+  dailyRate: number;
+  /** dailyRate extrapolated across the full window */
+  projectedExpenses: number;
+  /** (income + upcoming income) − (projected expenses + upcoming expenses) */
+  projectedBalance: number;
+}
+
+/**
+ * Single source of truth for end-of-period projection. Both Dashboard and
+ * Forecasting must use this so their numbers can't drift. Day math runs over
+ * the pay-cycle window (not the Ethiopian calendar month); upcoming recurring
+ * income/expenses are folded into the projected balance.
+ */
+export function projectPeriod(
+  period: FinancePeriod,
+  totalIncome: number,
+  totalExpenses: number,
+  upcomingIncome = 0,
+  upcomingExpenses = 0,
+  ref: Date = new Date(),
+): PeriodProjection {
+  const MS_DAY = 86400000;
+  const start = new Date(period.start + "T00:00:00Z");
+  const end = new Date(period.end + "T00:00:00Z");
+  const today = new Date(ref.toISOString().slice(0, 10) + "T00:00:00Z");
+
+  const daysInMonth = Math.round((end.getTime() - start.getTime()) / MS_DAY) + 1;
+  const dayOfMonth = Math.min(
+    Math.max(Math.floor((today.getTime() - start.getTime()) / MS_DAY) + 1, 1),
+    daysInMonth,
+  );
+  const daysRemaining = daysInMonth - dayOfMonth;
+
+  const dailyRate = dayOfMonth > 0 ? totalExpenses / dayOfMonth : 0;
+  const projectedExpenses = dailyRate * daysInMonth;
+  const projectedBalance =
+    totalIncome + upcomingIncome - (projectedExpenses + upcomingExpenses);
+
+  return { daysInMonth, dayOfMonth, daysRemaining, dailyRate, projectedExpenses, projectedBalance };
+}
+
 /** Step `n` periods back (n>0) or forward (n<0) from the given period's start. */
 export function shiftPeriod(period: FinancePeriod, n: number, settings: FinanceSettings = loadFinanceSettings()): FinancePeriod {
   const startDate = new Date(period.start + "T00:00:00Z");
