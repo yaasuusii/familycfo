@@ -33,6 +33,27 @@ type Metrics = {
   currency?: string;
 };
 
+// Budget Coach metrics. Every number here is pre-computed by the client; the
+// model only narrates. Suggested limits are NOT changed by the model.
+type BudgetMetrics = {
+  periodLabel: string;
+  periodStart: string; // YYYY-MM-DD
+  currency?: string;
+  avgIncome: number;
+  totalSuggested: number;
+  categories: {
+    category: string;
+    avgSpend: number;
+    lastSpend: number;
+    trend: "up" | "down" | "flat";
+    suggestedLimit: number;
+    currentLimit: number | null;
+    monthsSeen: number;
+  }[];
+};
+
+type Mode = "forecast" | "budget";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -42,9 +63,31 @@ Deno.serve(async (req) => {
       return json({ error: "LOVABLE_API_KEY not configured" }, 500);
     }
 
-    const { metrics } = (await req.json()) as { metrics: Metrics };
+    const body = (await req.json()) as { metrics: Metrics | BudgetMetrics; mode?: Mode };
+    const mode: Mode = body.mode === "budget" ? "budget" : "forecast";
+    const metrics = body.metrics;
     if (!metrics?.periodStart) return json({ error: "metrics.periodStart required" }, 400);
     const currency = metrics.currency || "ETB";
+
+    const systemPrompt =
+      mode === "budget"
+        ? `You are a budget coach for an Ethiopian household. All amounts are in ${currency}. ` +
+          "You are given per-category spending history and code-computed suggested monthly limits — " +
+          "DO NOT recompute or change any number, especially suggestedLimit. Reason only from the figures. " +
+          "Be concrete, calm, and practical for a young family. " +
+          "Respond with ONLY a valid JSON object, no markdown, no text outside the JSON, matching: " +
+          `{"summary": string (1-2 sentences on the overall budget plan), "outlook": "good"|"watch"|"tight", ` +
+          `"insights": string[] (2-4 per-category observations, name the category), "risks": string[] (0-3, empty if none), ` +
+          `"tips": string[] (2-4 specific actions to stay within budget)}. Keep every string under 22 words. ` +
+          `Reference real numbers from the metrics where useful (with the ${currency} prefix).`
+        : `You are the CFO of an Ethiopian household. All amounts are in ${currency}. ` +
+          "You are given pre-computed financial metrics — DO NOT recompute or invent any numbers; " +
+          "reason only from the figures provided. Be concrete, calm, and practical for a young family. " +
+          "Respond with ONLY a valid JSON object, no markdown, no text outside the JSON, matching: " +
+          `{"summary": string (1-2 sentences), "outlook": "good"|"watch"|"tight", ` +
+          `"insights": string[] (2-4 short observations), "risks": string[] (0-3, empty if none), ` +
+          `"tips": string[] (2-4 specific actions)}. Keep every string under 22 words. ` +
+          `Reference real numbers from the metrics where useful (with the ${currency} prefix).`;
 
     const response = await fetch(AI_URL, {
       method: "POST",
@@ -52,18 +95,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: MODEL,
         messages: [
-          {
-            role: "system",
-            content:
-              `You are the CFO of an Ethiopian household. All amounts are in ${currency}. ` +
-              "You are given pre-computed financial metrics — DO NOT recompute or invent any numbers; " +
-              "reason only from the figures provided. Be concrete, calm, and practical for a young family. " +
-              "Respond with ONLY a valid JSON object, no markdown, no text outside the JSON, matching: " +
-              `{"summary": string (1-2 sentences), "outlook": "good"|"watch"|"tight", ` +
-              `"insights": string[] (2-4 short observations), "risks": string[] (0-3, empty if none), ` +
-              `"tips": string[] (2-4 specific actions)}. Keep every string under 22 words. ` +
-              `Reference real numbers from the metrics where useful (with the ${currency} prefix).`,
-          },
+          { role: "system", content: systemPrompt },
           { role: "user", content: JSON.stringify(metrics) },
         ],
       }),
@@ -92,7 +124,7 @@ Deno.serve(async (req) => {
       .from("ai_insights")
       .upsert(
         {
-          insight_type: "forecast",
+          insight_type: mode,
           period_label: metrics.periodLabel,
           period_start: metrics.periodStart,
           payload,

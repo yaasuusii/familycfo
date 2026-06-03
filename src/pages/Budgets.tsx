@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBudgets, useCategories, useExpenses } from "@/hooks/useFinanceData";
+import { useBudgetCoach, type BudgetSuggestion } from "@/hooks/useBudgetCoach";
 import { formatETB, formatPercent } from "@/lib/format";
 import { getCurrentEthiopianMonth, getEthiopianMonthName, getEthiopianMonthDateRange } from "@/lib/ethiopian-calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +16,8 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Money, RadialGauge, StatHeroCard, BudgetCategoryCard, Reveal, Panel, type HeroState } from "@/components/finance";
 import { toast } from "sonner";
-import { Plus, Trash2, AlertTriangle, Pencil, ShieldAlert } from "lucide-react";
+import { Plus, Trash2, AlertTriangle, Pencil, ShieldAlert, Sparkles, RefreshCw, Loader2, Check, TrendingUp, TrendingDown, Minus, Lightbulb } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const ETH_MONTHS = Array.from({ length: 13 }, (_, i) => ({
   value: i + 1,
@@ -68,6 +70,29 @@ export default function Budgets() {
   const overallWarning = overallPct > 90;
 
   const unbudgetedCategories = categories.filter((c) => !budgets.some((b) => b.category === c.name));
+
+  const coach = useBudgetCoach(selMonth, selYear, budgets as any);
+  const [applying, setApplying] = useState<string | null>(null);
+
+  const applySuggestion = async (s: BudgetSuggestion) => {
+    if (!isAdmin || applying) return;
+    setApplying(s.category);
+    try {
+      const { error } = s.budgetId
+        ? await supabase.from("budgets").update({ monthly_limit: s.suggestedLimit }).eq("id", s.budgetId)
+        : await supabase.from("budgets").insert({
+            category: s.category,
+            monthly_limit: s.suggestedLimit,
+            month: selMonth,
+            year: selYear,
+          });
+      if (error) { toast.error(error.message); return; }
+      toast.success(`${s.category}: limit set to ${formatETB(s.suggestedLimit)}`);
+      queryClient.invalidateQueries({ queryKey: ["budgets", selMonth, selYear] });
+    } finally {
+      setApplying(null);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,6 +216,11 @@ export default function Budgets() {
         </Alert>
       )}
 
+      {/* Budget Coach */}
+      {isAdmin && (
+        <BudgetCoachCard coach={coach} applying={applying} onApply={applySuggestion} />
+      )}
+
       {/* Overview summary */}
       {budgetStats.length > 0 && (
         <Reveal>
@@ -248,6 +278,106 @@ export default function Budgets() {
         )}
       </div>
     </div>
+  );
+}
+
+const TREND_ICON = {
+  up: <TrendingUp className="h-3.5 w-3.5 text-destructive" />,
+  down: <TrendingDown className="h-3.5 w-3.5 text-success" />,
+  flat: <Minus className="h-3.5 w-3.5 text-muted-foreground" />,
+};
+
+function BudgetCoachCard({
+  coach, applying, onApply,
+}: {
+  coach: ReturnType<typeof useBudgetCoach>;
+  applying: string | null;
+  onApply: (s: BudgetSuggestion) => void;
+}) {
+  const { suggestions, coach: ai, loading } = coach;
+
+  if (loading && suggestions.length === 0) {
+    return (
+      <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.06] to-transparent">
+        <CardContent className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Reviewing your spending history…
+        </CardContent>
+      </Card>
+    );
+  }
+  if (suggestions.length === 0) return null;
+
+  return (
+    <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.06] to-transparent">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15">
+            <Sparkles className="h-4 w-4 text-primary" />
+          </div>
+          <div>
+            <CardTitle className="text-base">Budget Coach</CardTitle>
+            <p className="text-xs text-muted-foreground">Suggested limits from your last 3 months</p>
+          </div>
+        </div>
+        {coach.canRefresh && (
+          <Button variant="outline" size="sm" onClick={coach.refresh} disabled={coach.generating}>
+            {coach.generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            <span className="ml-1 hidden sm:inline">Refresh</span>
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {ai?.summary && <p className="text-sm font-medium leading-relaxed text-foreground">{ai.summary}</p>}
+
+        <div className="space-y-2">
+          {suggestions.map((s) => {
+            const matched = s.currentLimit === s.suggestedLimit;
+            return (
+              <div key={s.category} className="flex items-center gap-3 rounded-lg border border-border bg-card/60 p-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-medium text-foreground">{s.category}</span>
+                    {TREND_ICON[s.trend]}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Avg {formatETB(s.avgSpend)}/mo
+                    {s.currentLimit != null && ` · now ${formatETB(s.currentLimit)}`}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-display text-sm font-semibold tabular-nums text-foreground">{formatETB(s.suggestedLimit)}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">suggested</p>
+                </div>
+                {matched ? (
+                  <Badge variant="outline" className="border-success/30 bg-success/10 text-success">
+                    <Check className="mr-1 h-3 w-3" />Set
+                  </Badge>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => onApply(s)} disabled={applying === s.category}>
+                    {applying === s.category ? <Loader2 className="h-4 w-4 animate-spin" /> : s.currentLimit != null ? "Update" : "Apply"}
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {ai?.tips && ai.tips.length > 0 && (
+          <div className="rounded-lg border border-border bg-muted/40 p-3">
+            <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <Lightbulb className="h-3.5 w-3.5 text-warning" /> Suggestions
+            </p>
+            <ul className="space-y-1">
+              {ai.tips.map((t, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                  <span className="text-warning">•</span><span>{t}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
