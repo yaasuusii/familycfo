@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useExpenses, useCategories, useCategoryRules, useProfiles } from "@/hooks/useFinanceData";
 import { getFinancialPeriod } from "@/lib/finance-period";
-import { expenseBreakdown } from "@/lib/finance-calc";
+import { expenseBreakdown, REIMBURSEMENT_INCOME_SOURCE } from "@/lib/finance-calc";
 import { formatETB } from "@/lib/format";
 import { Money, StatHeroCard, Reveal } from "@/components/finance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -55,7 +55,7 @@ export default function Expenses() {
   const [filterUser, setFilterUser] = useState("all");
   const [filterPayment, setFilterPayment] = useState("all");
   const [sortAmount, setSortAmount] = useState<"none" | "asc" | "desc">("none");
-  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "", is_self_transfer: false });
+  const [form, setForm] = useState({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "", is_self_transfer: false, is_reimbursable: false });
   const [submitting, setSubmitting] = useState(false);
   const [hideTransfers, setHideTransfers] = useState(false);
   const [categorySuggestion, setCategorySuggestion] = useState<string | null>(null);
@@ -186,7 +186,12 @@ export default function Expenses() {
   const excludedNote = [
     bd.transfers > 0 ? `${formatETB(bd.transfers)} self-transfers` : null,
     bd.loans > 0 ? `${formatETB(bd.loans)} loan repayments` : null,
+    bd.reimbursed > 0 ? `${formatETB(bd.reimbursed)} reimbursed` : null,
   ].filter(Boolean).join(" · ");
+  const heroSubtitle = [
+    excludedNote ? `${excludedNote} excluded` : null,
+    bd.pendingReimbursable > 0 ? `${formatETB(bd.pendingReimbursable)} awaiting payback` : null,
+  ].filter(Boolean).join(" · ") || `${filtered.length} ${filtered.length === 1 ? "entry" : "entries"}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,11 +206,13 @@ export default function Expenses() {
         payment_method: form.payment_method,
         notes: form.notes || null,
         is_self_transfer: form.is_self_transfer,
+        is_reimbursable: form.is_reimbursable,
+        reimbursement_status: form.is_reimbursable ? "pending" : "none",
       }).select("id, notes, category").single();
       if (error) { toast.error(error.message); return; }
       toast.success("Expense added");
       setOpen(false);
-      setForm({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "", is_self_transfer: false });
+      setForm({ date: new Date().toISOString().slice(0, 10), category: "Grocery", amount: "", payment_method: "CBE", notes: "", is_self_transfer: false, is_reimbursable: false });
       setCategorySuggestion(null);
       queryClient.invalidateQueries({ queryKey: ["expenses"] });
 
@@ -231,6 +238,26 @@ export default function Expenses() {
     if (error) { toast.error(error.message); return; }
     toast.success("Deleted");
     queryClient.invalidateQueries({ queryKey: ["expenses"] });
+  };
+
+  const handleMarkReimbursed = async (e: typeof expenses[number]) => {
+    if (!user) return;
+    const { error } = await supabase.from("expenses").update({ reimbursement_status: "received" }).eq("id", e.id);
+    if (error) { toast.error(error.message); return; }
+    // Auto-create the offsetting payback income (nets the expense to zero).
+    const { error: incErr } = await supabase.from("income").insert({
+      user_id: user.id,
+      date: new Date().toISOString().slice(0, 10),
+      source: REIMBURSEMENT_INCOME_SOURCE,
+      amount: Number(e.amount),
+      payment_method: e.payment_method,
+      notes: `Reimbursement: ${e.notes || e.category}`,
+      is_self_transfer: false,
+    });
+    if (incErr) toast.error("Marked paid back, but income record failed");
+    else toast.success("Reimbursement received");
+    queryClient.invalidateQueries({ queryKey: ["expenses"] });
+    queryClient.invalidateQueries({ queryKey: ["income"] });
   };
 
   const handleCategoryChange = async (id: string, category: string) => {
@@ -363,6 +390,21 @@ export default function Expenses() {
                   </p>
                 </div>
               </div>
+              <div className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
+                form.is_reimbursable
+                  ? "bg-sky-50 border-sky-200 dark:bg-sky-950/30 dark:border-sky-800"
+                  : "bg-muted/50"
+              }`}>
+                <Switch checked={form.is_reimbursable} onCheckedChange={(v) => setForm({ ...form, is_reimbursable: v })} />
+                <div>
+                  <Label className="text-sm font-medium">Reimbursable</Label>
+                  <p className="text-xs text-muted-foreground">
+                    {form.is_reimbursable
+                      ? "Counts as spend until paid back, then nets to zero"
+                      : "Work cash you'll get back (travel, meetups)"}
+                  </p>
+                </div>
+              </div>
               <Button type="submit" className="w-full" disabled={submitting}>{submitting ? "Saving…" : "Save"}</Button>
             </form>
           </DialogContent>
@@ -433,7 +475,7 @@ export default function Expenses() {
           state="bad"
           label="Spending this month"
           amount={bd.real}
-          subtitle={excludedNote ? `${excludedNote} excluded` : `${filtered.length} ${filtered.length === 1 ? "entry" : "entries"}`}
+          subtitle={heroSubtitle}
         />
       </Reveal>
 
@@ -493,6 +535,11 @@ export default function Expenses() {
                           <ArrowLeftRight className="h-2.5 w-2.5" />Transfer
                         </span>
                       )}
+                      {e.is_reimbursable && (
+                        <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${e.reimbursement_status === "received" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300"}`}>
+                          {e.reimbursement_status === "received" ? "Reimbursed" : "Reimbursable"}
+                        </span>
+                      )}
                     </div>
                     {e.notes && (
                       <div className="mt-1 text-xs text-muted-foreground">
@@ -504,6 +551,9 @@ export default function Expenses() {
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <Money amount={Number(e.amount)} className="font-semibold text-foreground" />
+                    {e.is_reimbursable && e.reimbursement_status !== "received" && e.user_id === user?.id && (
+                      <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => handleMarkReimbursed(e)}>Paid back</Button>
+                    )}
                     {e.user_id === user?.id && (
                       <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleDelete(e.id)} aria-label="Delete expense">
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -651,6 +701,11 @@ export default function Expenses() {
                           <ArrowLeftRight className="h-2.5 w-2.5" />Transfer
                         </span>
                       )}
+                      {e.is_reimbursable && (
+                        <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${e.reimbursement_status === "received" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" : "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300"}`}>
+                          {e.reimbursement_status === "received" ? "Reimbursed" : "Reimbursable"}
+                        </span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -674,9 +729,14 @@ export default function Expenses() {
                     ) : e.notes}
                   </TableCell>
                   <TableCell>
-                    {e.user_id === user?.id && (
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(e.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    )}
+                    <div className="flex items-center justify-end gap-1">
+                      {e.is_reimbursable && e.reimbursement_status !== "received" && e.user_id === user?.id && (
+                        <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => handleMarkReimbursed(e)}>Paid back</Button>
+                      )}
+                      {e.user_id === user?.id && (
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(e.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

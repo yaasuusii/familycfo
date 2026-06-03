@@ -118,10 +118,12 @@ export type Database = {
           date: string
           id: string
           is_auto_generated: boolean
+          is_reimbursable: boolean
           is_self_transfer: boolean | null
           notes: string | null
           payment_method: string
           recurring_id: string | null
+          reimbursement_status: string
           user_id: string
         }
         Insert: {
@@ -131,10 +133,12 @@ export type Database = {
           date?: string
           id?: string
           is_auto_generated?: boolean
+          is_reimbursable?: boolean
           is_self_transfer?: boolean | null
           notes?: string | null
           payment_method: string
           recurring_id?: string | null
+          reimbursement_status?: string
           user_id: string
         }
         Update: {
@@ -144,10 +148,12 @@ export type Database = {
           date?: string
           id?: string
           is_auto_generated?: boolean
+          is_reimbursable?: boolean
           is_self_transfer?: boolean | null
           notes?: string | null
           payment_method?: string
           recurring_id?: string | null
+          reimbursement_status?: string
           user_id?: string
         }
         Relationships: []

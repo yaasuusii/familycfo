@@ -24,6 +24,7 @@ import {
   MEAL_TYPES, DAYS, NUTRIENTS, type MealType, type Nutrient,
 } from "@/hooks/useMealData";
 import { formatETB } from "@/lib/format";
+import { loadHouseholdSize, scaleMealsForHousehold } from "@/lib/household";
 import { useMarketPrices } from "@/hooks/useMarketPrices";
 import {
   GROCERY_CATEGORIES, getCategoryEmoji,
@@ -179,9 +180,11 @@ export default function MealPlanner() {
   const waterGlasses = waterData?.glasses ?? 0;
   const waterGoal = waterData?.goal ?? 10;
 
+  const householdSize = useMemo(() => loadHouseholdSize(), []);
+
   const allMealsForGrocery = useMemo(
-    () => showTwoWeeks ? [...meals, ...nextMeals] : meals,
-    [meals, nextMeals, showTwoWeeks]
+    () => scaleMealsForHousehold(showTwoWeeks ? [...meals, ...nextMeals] : meals, householdSize),
+    [meals, nextMeals, showTwoWeeks, householdSize]
   );
 
   const groceryList = useMemo(
@@ -219,7 +222,7 @@ export default function MealPlanner() {
             <UtensilsCrossed className="h-6 w-6 text-primary" /> Meal Planner
           </h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {filledCount}/{totalSlots} meals planned this week
+            {filledCount}/{totalSlots} meals planned · feeds {householdSize} {householdSize === 1 ? "person" : "people"}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -356,7 +359,7 @@ export default function MealPlanner() {
                       <>
                         <div className="text-xs font-medium truncate mt-0.5">{meal.name}</div>
                         {meal.is_batch && <Badge variant="outline" className="text-[9px] px-1 py-0 mt-0.5">Batch</Badge>}
-                        {meal.estimated_cost && <div className="text-[10px] text-muted-foreground">{formatETB(Number(meal.estimated_cost))}</div>}
+                        {meal.estimated_cost && <div className="text-[10px] text-muted-foreground">{formatETB(Number(meal.estimated_cost) * householdSize)}</div>}
                         {mealWarnings.length > 0 && (
                           <AlertTriangle className="h-3 w-3 text-destructive absolute top-1.5 right-1.5" />
                         )}

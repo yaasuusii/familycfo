@@ -22,6 +22,7 @@ import {
 import { useIncome, useExpenses, useBudgets } from "@/hooks/useFinanceData";
 import { getFinancialPeriod } from "@/lib/finance-period";
 import { incomeBreakdown, expenseBreakdown, realExpenses } from "@/lib/finance-calc";
+import { loadHouseholdSize } from "@/lib/household";
 import { useLoans } from "@/hooks/useLoanData";
 import { useUpcomingRecurring } from "@/hooks/useRecurringData";
 import { useMealPlan, useMeals, usePregnancyProfile, getTrimester, getWeekStart, MEAL_TYPES, NUTRIENTS } from "@/hooks/useMealData";
@@ -40,6 +41,7 @@ const CATEGORY_ICONS: Record<string, typeof ShoppingCart> = {
 
 export default function Dashboard() {
   const period = useMemo(() => getFinancialPeriod(), []);
+  const householdSize = useMemo(() => loadHouseholdSize(), []);
   const eth = getCurrentEthiopianMonth();
   const isMobile = useIsMobile();
 
@@ -284,7 +286,7 @@ export default function Dashboard() {
                   </div>
                   <Progress value={(allMeals.length / 35) * 100} className="h-2" />
                 </div>
-                <Row label="Est. weekly cost" value={<Money amount={allMeals.reduce((s: number, m: any) => s + Number(m.estimated_cost || 0), 0)} className="text-sm" />} />
+                <Row label="Est. weekly cost" value={<Money amount={allMeals.reduce((s: number, m: any) => s + Number(m.estimated_cost || 0), 0) * householdSize} className="text-sm" />} />
                 <Row label="Nutrition today" value={<span className="tnum font-medium">{todayNutrients.size}/{NUTRIENTS.length}</span>} />
               </div>
             )}

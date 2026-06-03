@@ -10,9 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Trash2, UserPlus, CalendarRange } from "lucide-react";
+import { Plus, Trash2, UserPlus, CalendarRange, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { loadFinanceSettings, saveFinanceSettings, getFinancialPeriod } from "@/lib/finance-period";
+import { loadHouseholdSize, saveHouseholdSize } from "@/lib/household";
 
 export default function SettingsPage() {
   const { role } = useAuth();
@@ -37,6 +38,13 @@ export default function SettingsPage() {
     startDay: Math.max(1, Math.min(28, Math.round(payCycle.startDay) || 6)),
     graceDays: Math.max(0, Math.min((Math.round(payCycle.startDay) || 6) - 1, Math.round(payCycle.graceDays) || 0)),
   });
+
+  const [household, setHousehold] = useState(loadHouseholdSize());
+  const saveHousehold = () => {
+    saveHouseholdSize(household);
+    toast.success("Household size saved — reloading");
+    setTimeout(() => window.location.reload(), 700);
+  };
 
   const addCategory = async () => {
     if (!newCategory.trim()) return;
@@ -107,6 +115,32 @@ export default function SettingsPage() {
             <span className="text-muted-foreground"> ({previewPeriod.start} → {previewPeriod.end})</span>
           </div>
           {isAdmin && <Button onClick={savePayCycle}>Save Pay Cycle</Button>}
+        </CardContent>
+      </Card>
+
+      {/* Household size */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Users className="h-4 w-4 text-primary" /> Household Size
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Meal costs and grocery quantities scale by how many people you cook for.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>People fed by meal plan</Label>
+              <Input
+                type="number" min={1} max={20}
+                value={household}
+                onChange={(e) => setHousehold(Number(e.target.value))}
+                disabled={!isAdmin}
+              />
+            </div>
+          </div>
+          {isAdmin && <Button onClick={saveHousehold}>Save Household Size</Button>}
         </CardContent>
       </Card>
 
