@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useIncome, useExpenses, getCurrentMonth } from "@/hooks/useFinanceData";
 import { useLoans } from "@/hooks/useLoanData";
+import { incomeBreakdown, expenseBreakdown, realExpenses } from "@/lib/finance-calc";
 import { formatETB, formatGregorianToEthiopian } from "@/lib/format";
 import { getEthiopianMonthOptions, parseEthMonth, getEthiopianMonthDateRange } from "@/lib/ethiopian-calendar";
 import { Download } from "lucide-react";
@@ -18,14 +19,17 @@ export default function Reports() {
 
   const monthOptions = useMemo(() => getEthiopianMonthOptions(), []);
 
-  const totalIncome = income.reduce((s, i) => s + Number(i.amount), 0);
-  const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
+  // Real totals exclude self-transfers and loan movements (loans shown separately).
+  const incBd = useMemo(() => incomeBreakdown(income), [income]);
+  const expBd = useMemo(() => expenseBreakdown(expenses), [expenses]);
+  const totalIncome = incBd.real;
+  const totalExpenses = expBd.real;
 
-  const loanRepaymentTotal = useMemo(() => expenses.filter((e) => e.category === "Loan Repayment").reduce((s, e) => s + Number(e.amount), 0), [expenses]);
+  const loanRepaymentTotal = expBd.loans;
 
   const categoryBreakdown = useMemo(() => {
     const map: Record<string, number> = {};
-    expenses.forEach((e) => { map[e.category] = (map[e.category] || 0) + Number(e.amount); });
+    realExpenses(expenses).forEach((e) => { map[e.category] = (map[e.category] || 0) + Number(e.amount); });
     return Object.entries(map).map(([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
   }, [expenses]);
 

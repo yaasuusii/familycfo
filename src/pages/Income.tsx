@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIncome, useProfiles } from "@/hooks/useFinanceData";
 import { getFinancialPeriod } from "@/lib/finance-period";
+import { incomeBreakdown, LOAN_INCOME_SOURCE } from "@/lib/finance-calc";
+import { useCreateLoan } from "@/hooks/useLoanData";
 import { formatETB } from "@/lib/format";
 import { Money, StatHeroCard, Reveal } from "@/components/finance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,6 +64,7 @@ function PaymentBadge({ method }: { method: string }) {
 export default function Income() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const createLoan = useCreateLoan();
   const period = useMemo(() => getFinancialPeriod(), []);
   const { data: income = [], isLoading: incomeLoading } = useIncome(period);
   const { data: profiles = [] } = useProfiles();
@@ -95,8 +98,13 @@ export default function Income() {
   );
 
   const totalFiltered = filtered.reduce((s, i) => s + Number(i.amount), 0);
+  const bd = incomeBreakdown(filtered);
   const transferTotal = income.filter((i) => i.is_self_transfer).reduce((s, i) => s + Number(i.amount), 0);
   const hasTransfers = transferTotal > 0;
+  const excludedNote = [
+    bd.transfers > 0 ? `${formatETB(bd.transfers)} self-transfers` : null,
+    bd.loans > 0 ? `${formatETB(bd.loans)} loans` : null,
+  ].filter(Boolean).join(" · ");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,6 +122,31 @@ export default function Income() {
       });
       if (error) { toast.error(error.message); return; }
       toast.success("Income added");
+
+      // Auto-create a matching loan record when money is borrowed.
+      if (form.source === LOAN_INCOME_SOURCE) {
+        const amt = parseFloat(form.amount);
+        const lenderMatch = form.notes.match(/from\s+([^|]+?)(?:\s*\||$)/i);
+        const lender = lenderMatch ? lenderMatch[1].trim() : `Loan via ${form.payment_method}`;
+        try {
+          await createLoan.mutateAsync({
+            loan_type: "taken",
+            lender_or_borrower_name: lender,
+            principal_amount: amt,
+            interest_rate: 0,
+            total_amount_due: amt,
+            start_date: form.date,
+            end_date: null,
+            repayment_frequency: "monthly",
+            remaining_balance: amt,
+            created_by: user.id,
+          });
+          toast.success(`Loan tracked: ${lender}`);
+        } catch (err) {
+          toast.error("Income saved, but loan record failed");
+        }
+      }
+
       setOpen(false);
       setForm({ date: new Date().toISOString().slice(0, 10), source: "Salary", amount: "", payment_method: "CBE", notes: "", is_self_transfer: false });
       queryClient.invalidateQueries({ queryKey: ["income"] });
@@ -315,8 +348,8 @@ export default function Income() {
         <StatHeroCard
           state="good"
           label="Income this month"
-          amount={totalFiltered - filtered.filter(i => i.is_self_transfer).reduce((s, i) => s + Number(i.amount), 0)}
-          subtitle={hasTransfers ? `${formatETB(transferTotal)} in self-transfers excluded` : `${filtered.length} ${filtered.length === 1 ? "entry" : "entries"}`}
+          amount={bd.real}
+          subtitle={excludedNote ? `${excludedNote} excluded` : `${filtered.length} ${filtered.length === 1 ? "entry" : "entries"}`}
         />
       </Reveal>
 
@@ -326,9 +359,9 @@ export default function Income() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span>Total: <Money amount={totalFiltered} className="text-base" /></span>
-                {hasTransfers && !hideTransfers && (
+                {(bd.transfers > 0 || bd.loans > 0) && !hideTransfers && (
                   <span className="text-sm font-normal text-muted-foreground">
-                    (Real: {formatETB(totalFiltered - filtered.filter(i => i.is_self_transfer).reduce((s, i) => s + Number(i.amount), 0))})
+                    (Real: {formatETB(bd.real)})
                   </span>
                 )}
               </div>

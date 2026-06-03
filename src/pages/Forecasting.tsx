@@ -1,23 +1,29 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useIncome, useExpenses, getCurrentMonth } from "@/hooks/useFinanceData";
+import { useIncome, useExpenses } from "@/hooks/useFinanceData";
 import { useUpcomingRecurringForMonth } from "@/hooks/useRecurringData";
+import { getFinancialPeriod } from "@/lib/finance-period";
+import { incomeBreakdown, expenseBreakdown } from "@/lib/finance-calc";
 import { formatETB } from "@/lib/format";
-import { getCurrentEthiopianMonth, getEthiopianMonthName, getEthiopianDaysInMonth } from "@/lib/ethiopian-calendar";
 import { Target, TrendingDown, TrendingUp, Wallet, CalendarDays, RefreshCw } from "lucide-react";
 
 export default function Forecasting() {
-  const month = getCurrentMonth();
-  const { data: income = [] } = useIncome(month);
-  const { data: expenses = [] } = useExpenses(month);
+  const period = useMemo(() => getFinancialPeriod(), []);
+  const { data: income = [] } = useIncome(period);
+  const { data: expenses = [] } = useExpenses(period);
   const { upcomingExpenses, upcomingIncome } = useUpcomingRecurringForMonth();
 
-  const totalIncome = useMemo(() => income.reduce((s, i) => s + Number(i.amount), 0), [income]);
-  const totalExpenses = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
+  // Real totals exclude self-transfers and loan movements.
+  const totalIncome = useMemo(() => incomeBreakdown(income).real, [income]);
+  const totalExpenses = useMemo(() => expenseBreakdown(expenses).real, [expenses]);
 
-  const eth = getCurrentEthiopianMonth();
-  const dayOfMonth = eth.day;
-  const daysInMonth = getEthiopianDaysInMonth(eth.month, eth.year);
+  // Day math over the pay-cycle window.
+  const MS_DAY = 86400000;
+  const start = new Date(period.start + "T00:00:00");
+  const end = new Date(period.end + "T00:00:00");
+  const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00");
+  const daysInMonth = Math.round((end.getTime() - start.getTime()) / MS_DAY) + 1;
+  const dayOfMonth = Math.min(Math.max(Math.floor((today.getTime() - start.getTime()) / MS_DAY) + 1, 1), daysInMonth);
   const daysRemaining = daysInMonth - dayOfMonth;
 
   const dailyRate = dayOfMonth > 0 ? totalExpenses / dayOfMonth : 0;
@@ -25,7 +31,7 @@ export default function Forecasting() {
   const adjustedProjectedBalance = (totalIncome + upcomingIncome) - (projectedTotal + upcomingExpenses);
   const safeToSpend = daysRemaining > 0 ? Math.max(0, (totalIncome - totalExpenses) / daysRemaining) : 0;
 
-  const ethMonthLabel = `${getEthiopianMonthName(eth.month)} ${eth.year}`;
+  const ethMonthLabel = period.label;
 
   return (
     <div className="space-y-6">

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useExpenses, useCategories, useCategoryRules, useProfiles } from "@/hooks/useFinanceData";
 import { getFinancialPeriod } from "@/lib/finance-period";
+import { expenseBreakdown } from "@/lib/finance-calc";
 import { formatETB } from "@/lib/format";
 import { Money, StatHeroCard, Reveal } from "@/components/finance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -181,6 +182,11 @@ export default function Expenses() {
   );
 
   const totalFiltered = filtered.reduce((s, e) => s + Number(e.amount), 0);
+  const bd = expenseBreakdown(filtered);
+  const excludedNote = [
+    bd.transfers > 0 ? `${formatETB(bd.transfers)} self-transfers` : null,
+    bd.loans > 0 ? `${formatETB(bd.loans)} loan repayments` : null,
+  ].filter(Boolean).join(" · ");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -426,8 +432,8 @@ export default function Expenses() {
         <StatHeroCard
           state="bad"
           label="Spending this month"
-          amount={totalFiltered - filtered.filter(e => e.is_self_transfer).reduce((s, e) => s + Number(e.amount), 0)}
-          subtitle={hasTransfers ? `${formatETB(transferTotal)} in self-transfers excluded` : `${filtered.length} ${filtered.length === 1 ? "entry" : "entries"}`}
+          amount={bd.real}
+          subtitle={excludedNote ? `${excludedNote} excluded` : `${filtered.length} ${filtered.length === 1 ? "entry" : "entries"}`}
         />
       </Reveal>
 
@@ -437,9 +443,9 @@ export default function Expenses() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span>Total: <Money amount={totalFiltered} className="text-base" /></span>
-                {hasTransfers && !hideTransfers && (
+                {(bd.transfers > 0 || bd.loans > 0) && !hideTransfers && (
                   <span className="text-sm font-normal text-muted-foreground">
-                    (Real: {formatETB(totalFiltered - filtered.filter(e => e.is_self_transfer).reduce((s, e) => s + Number(e.amount), 0))})
+                    (Real: {formatETB(bd.real)})
                   </span>
                 )}
               </div>

@@ -21,11 +21,12 @@ import {
 } from "@/components/finance";
 import { useIncome, useExpenses, useBudgets } from "@/hooks/useFinanceData";
 import { getFinancialPeriod } from "@/lib/finance-period";
+import { incomeBreakdown, expenseBreakdown, realExpenses } from "@/lib/finance-calc";
 import { useLoans } from "@/hooks/useLoanData";
 import { useUpcomingRecurring } from "@/hooks/useRecurringData";
 import { useMealPlan, useMeals, usePregnancyProfile, getTrimester, getWeekStart, MEAL_TYPES, NUTRIENTS } from "@/hooks/useMealData";
 import { formatETB, formatPercent } from "@/lib/format";
-import { getCurrentEthiopianMonth, getEthiopianMonthName, getEthiopianDaysInMonth } from "@/lib/ethiopian-calendar";
+import { getCurrentEthiopianMonth, getCurrentEthMonth, getEthiopianMonthName, getEthiopianDaysInMonth } from "@/lib/ethiopian-calendar";
 import {
   TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target,
   AlertTriangle, Landmark, HandCoins, Scale, RefreshCw,
@@ -45,6 +46,9 @@ export default function Dashboard() {
   const { data: income = [], isLoading: incomeLoading } = useIncome(period);
   const { data: expenses = [], isLoading: expensesLoading } = useExpenses(period);
   const { data: budgets = [] } = useBudgets(eth.month, eth.year);
+  // Budget widget tracks the Ethiopian month (same window as Budgets page) so "spent" agrees.
+  const ethMonthStr = useMemo(() => getCurrentEthMonth(), []);
+  const { data: budgetExpenses = [] } = useExpenses(ethMonthStr);
   const { data: allLoans = [] } = useLoans();
   const upcomingItems = useUpcomingRecurring();
 
@@ -77,23 +81,26 @@ export default function Dashboard() {
     return diff > 0 && diff <= 5;
   });
 
-  const totalIncome = useMemo(() => income.reduce((s, i) => s + Number(i.amount), 0), [income]);
-  const totalExpenses = useMemo(() => expenses.reduce((s, e) => s + Number(e.amount), 0), [expenses]);
+  // Real totals exclude self-transfers and loan movements (loans tracked separately).
+  const incBd = useMemo(() => incomeBreakdown(income), [income]);
+  const expBd = useMemo(() => expenseBreakdown(expenses), [expenses]);
+  const totalIncome = incBd.real;
+  const totalExpenses = expBd.real;
   const remaining = totalIncome - totalExpenses;
   const grocerySpend = useMemo(() => expenses.filter((e) => e.category === "Grocery").reduce((s, e) => s + Number(e.amount), 0), [expenses]);
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
 
-  const loanRepaymentThisMonth = useMemo(() => expenses.filter((e) => e.category === "Loan Repayment").reduce((s, e) => s + Number(e.amount), 0), [expenses]);
+  const loanRepaymentThisMonth = expBd.loans;
   const debtToIncomeRatio = totalIncome > 0 ? (loanRepaymentThisMonth / totalIncome) * 100 : 0;
 
   const budgetStats = useMemo(() => {
     return budgets.map((b) => {
-      const actual = expenses.filter((e) => e.category === b.category).reduce((s, e) => s + Number(e.amount), 0);
+      const actual = budgetExpenses.filter((e) => e.category === b.category).reduce((s, e) => s + Number(e.amount), 0);
       const limit = Number(b.monthly_limit);
       const pct = limit > 0 ? (actual / limit) * 100 : 0;
       return { category: b.category, limit, actual, pct, remaining: limit - actual };
     });
-  }, [budgets, expenses]);
+  }, [budgets, budgetExpenses]);
 
   const totalBudget = budgetStats.reduce((s, b) => s + b.limit, 0);
   const totalBudgetSpent = budgetStats.reduce((s, b) => s + b.actual, 0);
@@ -108,7 +115,7 @@ export default function Dashboard() {
 
   const dailyTrend = useMemo(() => {
     const map: Record<string, number> = {};
-    expenses.forEach((e) => { map[e.date] = (map[e.date] || 0) + Number(e.amount); });
+    realExpenses(expenses).forEach((e) => { map[e.date] = (map[e.date] || 0) + Number(e.amount); });
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([date, amount]) => ({ date: date.slice(5), amount }));
   }, [expenses]);
 
