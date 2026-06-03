@@ -16,11 +16,9 @@ import {
   SectionHeader,
   Panel,
   type HeroState,
-  type AlertItem,
-
 } from "@/components/finance";
 import { useIncome, useExpenses, useBudgets } from "@/hooks/useFinanceData";
-import { getFinancialPeriod } from "@/lib/finance-period";
+import { getFinancialPeriod, shiftPeriod } from "@/lib/finance-period";
 import { incomeBreakdown, expenseBreakdown, realExpenses } from "@/lib/finance-calc";
 import { loadHouseholdSize } from "@/lib/household";
 import { useLoans } from "@/hooks/useLoanData";
@@ -45,8 +43,12 @@ export default function Dashboard() {
   const eth = getCurrentEthiopianMonth();
   const isMobile = useIsMobile();
 
+  const prevPeriod = useMemo(() => shiftPeriod(period, 1), [period]);
+
   const { data: income = [], isLoading: incomeLoading } = useIncome(period);
   const { data: expenses = [], isLoading: expensesLoading } = useExpenses(period);
+  const { data: prevIncome = [] } = useIncome(prevPeriod);
+  const { data: prevExpenses = [] } = useExpenses(prevPeriod);
   const { data: budgets = [] } = useBudgets(eth.month, eth.year);
   // Budget widget tracks the Ethiopian month (same window as Budgets page) so "spent" agrees.
   const ethMonthStr = useMemo(() => getCurrentEthMonth(), []);
@@ -75,14 +77,6 @@ export default function Dashboard() {
   const totalDebt = activeTaken.reduce((s, l) => s + Number(l.remaining_balance), 0);
   const totalReceivable = activeGiven.reduce((s, l) => s + Number(l.remaining_balance), 0);
 
-  const now = new Date();
-  const hasOverdueLoan = activeLoans.some((l) => l.end_date && new Date(l.end_date) < now);
-  const hasDueSoonLoan = activeLoans.some((l) => {
-    if (!l.end_date) return false;
-    const diff = (new Date(l.end_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-    return diff > 0 && diff <= 5;
-  });
-
   // Real totals exclude self-transfers and loan movements (loans tracked separately).
   const incBd = useMemo(() => incomeBreakdown(income), [income]);
   const expBd = useMemo(() => expenseBreakdown(expenses), [expenses]);
@@ -91,6 +85,14 @@ export default function Dashboard() {
   const remaining = totalIncome - totalExpenses;
   const grocerySpend = useMemo(() => expenses.filter((e) => e.category === "Grocery").reduce((s, e) => s + Number(e.amount), 0), [expenses]);
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
+
+  // Month-over-month deltas (vs previous pay-cycle period)
+  const prevIncomeTotal = useMemo(() => incomeBreakdown(prevIncome).real, [prevIncome]);
+  const prevExpenseTotal = useMemo(() => expenseBreakdown(prevExpenses).real, [prevExpenses]);
+  const pctDelta = (cur: number, prev: number): number | null =>
+    prev > 0 ? ((cur - prev) / prev) * 100 : null;
+  const incomeDelta = pctDelta(totalIncome, prevIncomeTotal);
+  const expenseDelta = pctDelta(totalExpenses, prevExpenseTotal);
 
   const loanRepaymentThisMonth = expBd.loans;
   const debtToIncomeRatio = totalIncome > 0 ? (loanRepaymentThisMonth / totalIncome) * 100 : 0;
@@ -136,13 +138,6 @@ export default function Dashboard() {
   // Status of the two hero panels
   const spendState: HeroState = safeToSpend < 0 ? "bad" : safeToSpend < totalIncome * 0.1 ? "warn" : "good";
   const budgetState: HeroState = anyExceeded ? "bad" : overallWarning ? "warn" : "good";
-
-  // Collapsed notification bar feed
-  const alerts: AlertItem[] = [];
-  if (anyExceeded) alerts.push({ severity: "critical", message: "One or more budget categories have been exceeded." });
-  else if (overallWarning) alerts.push({ severity: "warning", message: `Overall budget usage is above 90% (${formatPercent(overallBudgetPct)}).` });
-  if (hasOverdueLoan) alerts.push({ severity: "critical", message: "One or more loans are overdue." });
-  else if (hasDueSoonLoan) alerts.push({ severity: "warning", message: "Loan payments due within 5 days." });
 
   if (incomeLoading || expensesLoading) {
     return (
@@ -214,12 +209,34 @@ export default function Dashboard() {
       {/* ── Accent stat strip ── */}
       <Reveal index={3}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <MiniStat label="Income" amount={totalIncome} icon={TrendingUp} tint="hsl(var(--success))" />
-          <MiniStat label="Expenses" amount={totalExpenses} icon={TrendingDown} tint="hsl(var(--destructive))" />
+          <MiniStat label="Income" amount={totalIncome} icon={TrendingUp} tint="hsl(var(--success))" deltaPct={incomeDelta} goodWhenUp />
+          <MiniStat label="Expenses" amount={totalExpenses} icon={TrendingDown} tint="hsl(var(--destructive))" deltaPct={expenseDelta} goodWhenUp={false} />
           <MiniStat label="Remaining" amount={remaining} icon={PiggyBank} tint="hsl(var(--primary))" />
           <MiniStat label="Projected" amount={projectedRemaining} icon={Target} tint="hsl(var(--info))" />
         </div>
       </Reveal>
+
+      {/* ── Pending reimbursement callout ── */}
+      {expBd.pendingReimbursable > 0 && (
+        <Reveal index={3}>
+          <Link to="/expenses" className="block">
+            <Card className="card-soft lift border-0">
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+                     style={{ background: "color-mix(in oklab, hsl(var(--info)) 14%, transparent)" }}>
+                  <HandCoins className="h-5 w-5" style={{ color: "hsl(var(--info))" }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-foreground">Awaiting reimbursement</p>
+                  <p className="text-xs text-muted-foreground">Out-of-pocket spend not yet paid back</p>
+                </div>
+                <Money amount={expBd.pendingReimbursable} className="text-base font-semibold text-[hsl(var(--info))]" />
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
+        </Reveal>
+      )}
 
       {/* ── Today's Meals (upper — checked daily) ── */}
       <Reveal index={4}>
@@ -440,7 +457,15 @@ export default function Dashboard() {
 
 /* ── local helpers ── */
 
-function MiniStat({ label, amount, icon: Icon, tint }: { label: string; amount: number; icon: typeof Wallet; tint: string }) {
+function MiniStat({ label, amount, icon: Icon, tint, deltaPct, goodWhenUp }: {
+  label: string; amount: number; icon: typeof Wallet; tint: string;
+  deltaPct?: number | null; goodWhenUp?: boolean;
+}) {
+  const hasDelta = deltaPct != null && Number.isFinite(deltaPct);
+  const up = hasDelta && (deltaPct as number) > 0;
+  const flat = hasDelta && Math.abs(deltaPct as number) < 0.5;
+  const good = flat ? null : up === goodWhenUp;
+  const deltaColor = good == null ? "text-muted-foreground" : good ? "text-success" : "text-destructive";
   return (
     <Card className="card-soft lift border-0">
       <CardContent className="flex items-center gap-3 p-3.5">
@@ -451,6 +476,11 @@ function MiniStat({ label, amount, icon: Icon, tint }: { label: string; amount: 
         <div className="min-w-0">
           <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
           <Money amount={amount} className="text-base text-foreground" />
+          {hasDelta && (
+            <p className={`mt-0.5 flex items-center gap-0.5 text-[11px] font-medium tnum ${deltaColor}`}>
+              {flat ? "→" : up ? "↑" : "↓"} {Math.abs(deltaPct as number).toFixed(0)}% <span className="text-muted-foreground">vs last</span>
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

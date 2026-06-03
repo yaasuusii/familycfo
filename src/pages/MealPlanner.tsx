@@ -16,7 +16,7 @@ import {
   ChevronLeft, ChevronRight, Plus, Copy, AlertTriangle, Droplets,
   UtensilsCrossed, Baby, Sparkles, Loader2, ShoppingCart, Check, CalendarPlus,
 } from "lucide-react";
-import { googleCalendarUrl } from "@/lib/calendar";
+import { googleCalendarUrl, mealsToIcs, downloadIcs } from "@/lib/calendar";
 import {
   useMealPlan, useMeals, useCreateMealPlan, useUpsertMeal, useDeleteMeal,
   useFoodWarnings, useWaterIntake, useUpsertWater,
@@ -162,6 +162,16 @@ export default function MealPlanner() {
     toast.success("Copied previous week's meals");
   };
 
+  const handleExportCalendar = () => {
+    if (meals.length === 0) {
+      toast.error("No meals to export this week");
+      return;
+    }
+    const ics = mealsToIcs(meals as any, weekStart, householdSize);
+    downloadIcs(`meal-plan-${weekStart}.ics`, ics);
+    toast.success(`Exported ${meals.length} meals — open the file to import into your calendar`);
+  };
+
   const handleGenerate = async () => {
     await handleEnsurePlan();
     const currentPlan = plan ?? (await createPlan.mutateAsync(weekStart));
@@ -242,6 +252,9 @@ export default function MealPlanner() {
           </Button>
           <Button variant="outline" size="sm" onClick={handleCopyPrevWeek} disabled={copyWeek.isPending}>
             <Copy className="h-4 w-4 mr-1" />Copy Last Week
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportCalendar} disabled={meals.length === 0}>
+            <CalendarPlus className="h-4 w-4 mr-1" />Add Week to Calendar
           </Button>
           {!pregnancyProfile && (
             <Button variant="outline" size="sm" onClick={() => setShowDueDate(true)}>

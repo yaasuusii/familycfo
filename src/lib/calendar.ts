@@ -61,3 +61,73 @@ export function googleCalendarUrl(meal: CalMeal, weekStart: string, household = 
   });
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
+
+// ── Bulk export: one .ics file with every planned meal as a timed event. ──
+// Imports into Google Calendar, Apple Calendar, Outlook — any calendar app.
+
+// Escape per RFC 5545: backslash, comma, semicolon, newline.
+const icsEscape = (s: string) =>
+  s.replace(/\\/g, "\\\\").replace(/,/g, "\\,").replace(/;/g, "\\;").replace(/\n/g, "\\n");
+
+function mealDetails(meal: CalMeal, household: number): string {
+  const lines: string[] = [];
+  if (meal.notes) lines.push(meal.notes);
+  if (meal.meal_ingredients?.length) {
+    lines.push("Ingredients:");
+    for (const ing of meal.meal_ingredients) {
+      const q = ing.quantity != null ? `${fmtQty(Number(ing.quantity))} ${ing.unit ?? ""}`.trim() : "";
+      lines.push(`• ${ing.name}${q ? ` — ${q}` : ""}`);
+    }
+  }
+  const cost = Number(meal.estimated_cost) * household;
+  if (cost > 0) lines.push(`Est. cost: ${cost.toFixed(0)} ETB (feeds ${household})`);
+  lines.push("", "Added from Family CFO");
+  return lines.join("\n");
+}
+
+/** Build an iCalendar (.ics) document for a whole week's meals. */
+export function mealsToIcs(meals: CalMeal[], weekStart: string, household = 1): string {
+  const [y, m, d] = weekStart.split("-").map(Number);
+  const stamp = fmtLocal(new Date()) + "Z";
+
+  const out: string[] = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Family CFO//Meal Planner//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+  ];
+
+  for (const meal of meals) {
+    const slot = SLOT_TIME[meal.meal_type] ?? SLOT_TIME.dinner;
+    const start = new Date(y, m - 1, d + meal.day_of_week, slot.h, slot.m);
+    const end = new Date(start.getTime() + slot.durMin * 60000);
+    const uid = `${weekStart}-${meal.day_of_week}-${meal.meal_type}-${Math.random().toString(36).slice(2, 8)}@familycfo`;
+    out.push(
+      "BEGIN:VEVENT",
+      `UID:${uid}`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART:${fmtLocal(start)}`,
+      `DTEND:${fmtLocal(end)}`,
+      `SUMMARY:${icsEscape(meal.name)}`,
+      `DESCRIPTION:${icsEscape(mealDetails(meal, household))}`,
+      "END:VEVENT",
+    );
+  }
+
+  out.push("END:VCALENDAR");
+  return out.join("\r\n");
+}
+
+/** Trigger a browser download of an .ics file. */
+export function downloadIcs(filename: string, ics: string): void {
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename.endsWith(".ics") ? filename : `${filename}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
