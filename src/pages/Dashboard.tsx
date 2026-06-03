@@ -24,13 +24,21 @@ import { loadHouseholdSize } from "@/lib/household";
 import { useLoans } from "@/hooks/useLoanData";
 import { useUpcomingRecurring } from "@/hooks/useRecurringData";
 import { useMealPlan, useMeals, usePregnancyProfile, getTrimester, getWeekStart, MEAL_TYPES, NUTRIENTS } from "@/hooks/useMealData";
+import { useCachedForecast } from "@/hooks/useFinancialInsights";
+import { SavingsGoalsCard } from "@/components/SavingsGoalsCard";
 import { formatETB, formatPercent } from "@/lib/format";
 import { getCurrentEthiopianMonth, getCurrentEthMonth, getEthiopianMonthName, getEthiopianDaysInMonth } from "@/lib/ethiopian-calendar";
 import {
   TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target,
   AlertTriangle, Landmark, HandCoins, Scale, RefreshCw,
-  UtensilsCrossed, Baby, ChevronRight, ArrowUpRight,
+  UtensilsCrossed, Baby, ChevronRight, ArrowUpRight, Sparkles,
 } from "lucide-react";
+
+const OUTLOOK_BADGE: Record<string, { label: string; cls: string }> = {
+  good: { label: "On track", cls: "bg-success/15 text-success border-success/30" },
+  watch: { label: "Watch", cls: "bg-warning/15 text-warning border-warning/30" },
+  tight: { label: "Tight", cls: "bg-destructive/15 text-destructive border-destructive/30" },
+};
 
 const CATEGORY_ICONS: Record<string, typeof ShoppingCart> = {
   Grocery: ShoppingCart,
@@ -62,6 +70,8 @@ export default function Dashboard() {
   const { data: allMeals = [] } = useMeals(mealPlan?.id);
   const { data: pregnancyProfile } = usePregnancyProfile();
   const trimesterInfo = pregnancyProfile?.due_date ? getTrimester(pregnancyProfile.due_date) : null;
+
+  const { data: forecastAi } = useCachedForecast();
 
   const todayDow = (new Date().getDay() + 6) % 7; // 0=Mon
   const todayMeals = useMemo(() => allMeals.filter((m: any) => m.day_of_week === todayDow), [allMeals, todayDow]);
@@ -206,6 +216,33 @@ export default function Dashboard() {
         </div>
       </Reveal>
 
+      {/* ── CFO Insight teaser (cached AI summary) ── */}
+      {forecastAi?.summary && (
+        <Reveal index={2}>
+          <Link to="/forecasting" className="block">
+            <Card className="lift border-primary/20 bg-gradient-to-br from-primary/[0.06] to-transparent">
+              <CardContent className="flex items-start gap-3 p-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-0.5 flex items-center gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">CFO Insight</p>
+                    {OUTLOOK_BADGE[forecastAi.outlook] && (
+                      <Badge variant="outline" className={`px-1.5 py-0 text-[10px] ${OUTLOOK_BADGE[forecastAi.outlook].cls}`}>
+                        {OUTLOOK_BADGE[forecastAi.outlook].label}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm leading-relaxed text-foreground">{forecastAi.summary}</p>
+                </div>
+                <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
+        </Reveal>
+      )}
+
       {/* ── Accent stat strip ── */}
       <Reveal index={3}>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -341,6 +378,11 @@ export default function Dashboard() {
           </div>
         </Reveal>
       )}
+
+      {/* ── Savings goals ── */}
+      <Reveal index={6}>
+        <SavingsGoalsCard />
+      </Reveal>
 
       {/* ── Daily spending trend (full width) ── */}
       <Reveal index={6}>

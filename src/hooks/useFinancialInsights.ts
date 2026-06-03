@@ -215,6 +215,29 @@ function round(n: number): number {
 }
 
 /**
+ * Read-only: the cached forecast narration for the current period, if any.
+ * Cheap (single row, no metric computation) — for surfacing the AI summary
+ * on the dashboard without triggering generation.
+ */
+export function useCachedForecast() {
+  const start = useMemo(() => getFinancialPeriod().start, []);
+  return useQuery({
+    queryKey: ["aiInsight", "forecast", start],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ai_insights")
+        .select("payload")
+        .eq("insight_type", "forecast")
+        .eq("period_start", start)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? (data.payload as unknown as InsightPayload).ai : null;
+    },
+    staleTime: 60 * 1000,
+  });
+}
+
+/**
  * `supabase.functions.invoke` rejects with a generic "non-2xx" message and
  * hides the function's JSON body on `error.context`. Pull the real `error`
  * string out so the UI can show the actual cause.
