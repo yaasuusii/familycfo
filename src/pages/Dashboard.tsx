@@ -15,9 +15,9 @@ import {
   Reveal,
   SectionHeader,
   Panel,
-  NotificationBar,
   type HeroState,
   type AlertItem,
+
 } from "@/components/finance";
 import { useIncome, useExpenses, useBudgets } from "@/hooks/useFinanceData";
 import { getFinancialPeriod } from "@/lib/finance-period";
