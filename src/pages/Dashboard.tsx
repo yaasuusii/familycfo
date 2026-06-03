@@ -167,12 +167,6 @@ export default function Dashboard() {
   return (
     <div className="space-y-7">
       {/* ── Masthead ── */}
-      {/* ── Notification bar ── */}
-      {alerts.length > 0 && (
-        <Reveal index={0}>
-          <NotificationBar alerts={alerts} />
-        </Reveal>
-      )}
 
       <Reveal index={0}>
         <div className="flex items-end justify-between gap-3">
