@@ -38,9 +38,10 @@ export function realIncome(rows: IncomeRow[]): IncomeRow[] {
 }
 
 /** Expenses excluding self-transfers and loan repayments. */
-export function realExpenses(rows: ExpenseRow[]): ExpenseRow[] {
+export function realExpenses<T extends ExpenseRow>(rows: T[]): T[] {
   return rows.filter((r) => !isTransfer(r) && !isExpenseLoan(r));
 }
+
 
 export type IncomeBreakdown = {
   real: number;      // spendable income

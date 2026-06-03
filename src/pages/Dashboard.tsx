@@ -15,9 +15,9 @@ import {
   Reveal,
   SectionHeader,
   Panel,
-  NotificationBar,
   type HeroState,
   type AlertItem,
+
 } from "@/components/finance";
 import { useIncome, useExpenses, useBudgets } from "@/hooks/useFinanceData";
 import { getFinancialPeriod } from "@/lib/finance-period";
@@ -167,12 +167,6 @@ export default function Dashboard() {
   return (
     <div className="space-y-7">
       {/* ── Masthead ── */}
-      {/* ── Notification bar ── */}
-      {alerts.length > 0 && (
-        <Reveal index={0}>
-          <NotificationBar alerts={alerts} />
-        </Reveal>
-      )}
 
       <Reveal index={0}>
         <div className="flex items-end justify-between gap-3">
