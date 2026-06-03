@@ -36,6 +36,7 @@ export function useCreateRecurringIncome() {
   return useMutation({
     mutationFn: async (values: {
       title: string;
+      source: string;
       amount: number;
       frequency: string;
       start_date: string;

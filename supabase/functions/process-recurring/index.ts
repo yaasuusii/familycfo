@@ -55,16 +55,24 @@ Deno.serve(async (req) => {
         .limit(1);
 
       if (!existing || existing.length === 0) {
-        await supabase.from("income").insert({
+        // `source` must satisfy the income CHECK constraint; the free-text title
+        // goes in notes. Older rules without a source default to 'Other'.
+        const ALLOWED = ["Salary", "Business", "Loan Taken", "Reimbursement", "Other"];
+        const source = ALLOWED.includes(rule.source) ? rule.source : "Other";
+        const { error: insErr } = await supabase.from("income").insert({
           user_id: rule.created_by,
-          source: rule.title,
+          source,
           amount: rule.amount,
           date: dateStr,
-          notes: "Auto-generated from recurring rule",
+          notes: `${rule.title} (recurring)`,
           is_auto_generated: true,
           recurring_id: rule.id,
         });
-        generated++;
+        if (insErr) {
+          console.error("recurring income insert failed", rule.id, dateStr, insErr.message);
+        } else {
+          generated++;
+        }
       }
 
       await supabase
@@ -102,17 +110,21 @@ Deno.serve(async (req) => {
         .limit(1);
 
       if (!existing || existing.length === 0) {
-        await supabase.from("expenses").insert({
+        const { error: insErr } = await supabase.from("expenses").insert({
           user_id: rule.created_by,
           category: rule.category,
           amount: rule.amount,
           date: dateStr,
           payment_method: "CBE",
-          notes: "Auto-generated from recurring rule",
+          notes: `${rule.title} (recurring)`,
           is_auto_generated: true,
           recurring_id: rule.id,
         });
-        generated++;
+        if (insErr) {
+          console.error("recurring expense insert failed", rule.id, dateStr, insErr.message);
+        } else {
+          generated++;
+        }
       }
 
       await supabase

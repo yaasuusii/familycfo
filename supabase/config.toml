@@ -1,7 +1,9 @@
 project_id = "lqhwbwmlvtrpovexiyye"
 
 [functions.process-recurring]
-verify_jwt = false
+# Require a valid JWT — the app invokes this on load (with the user's session),
+# so it no longer needs to be a public endpoint.
+verify_jwt = true
 
 [functions.generate-meal-plan]
 verify_jwt = true

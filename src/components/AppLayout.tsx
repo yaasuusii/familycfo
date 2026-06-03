@@ -4,6 +4,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { Outlet, useLocation } from "react-router-dom";
+import { useRecurringAutoPost } from "@/hooks/useRecurringAutoPost";
 
 const PAGE_TITLES: Record<string, string> = {
   "/": "Dashboard",
@@ -28,6 +29,7 @@ function getPageTitle(pathname: string): string {
 export function AppLayout() {
   const { pathname } = useLocation();
   const title = getPageTitle(pathname);
+  useRecurringAutoPost();
 
   return (
     <SidebarProvider>

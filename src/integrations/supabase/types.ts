@@ -585,6 +585,7 @@ export type Database = {
           id: string
           is_active: boolean
           last_generated_date: string | null
+          source: string
           start_date: string
           title: string
         }
@@ -598,6 +599,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_generated_date?: string | null
+          source?: string
           start_date: string
           title: string
         }
@@ -611,6 +613,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_generated_date?: string | null
+          source?: string
           start_date?: string
           title?: string
         }

@@ -292,6 +292,7 @@ function HistoryList({ recurringId, type }: { recurringId: string; type: "income
 
 function AddIncomeForm({ userId, onSuccess, mutate }: { userId: string; onSuccess: () => void; mutate: any }) {
   const [title, setTitle] = useState("");
+  const [source, setSource] = useState("Salary");
   const [amount, setAmount] = useState("");
   const [frequency, setFrequency] = useState("monthly");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
@@ -301,7 +302,7 @@ function AddIncomeForm({ userId, onSuccess, mutate }: { userId: string; onSucces
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     mutate.mutate({
-      title, amount: Number(amount), frequency, start_date: startDate,
+      title, source, amount: Number(amount), frequency, start_date: startDate,
       end_date: endDate || null, auto_post: autoPost, created_by: userId,
     }, { onSuccess: () => { onSuccess(); toast.success("Recurring income created"); } });
   };
@@ -309,6 +310,16 @@ function AddIncomeForm({ userId, onSuccess, mutate }: { userId: string; onSucces
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div><Label>Title</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} required /></div>
+      <div><Label>Source</Label>
+        <Select value={source} onValueChange={setSource}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Salary">Salary</SelectItem>
+            <SelectItem value="Business">Business</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <div><Label>Amount (ETB)</Label><Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required /></div>
       <div><Label>Frequency</Label>
         <Select value={frequency} onValueChange={setFrequency}>
