@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_insights: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          insight_type: string
+          model: string | null
+          payload: Json
+          period_label: string
+          period_start: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          insight_type: string
+          model?: string | null
+          payload: Json
+          period_label: string
+          period_start: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          insight_type?: string
+          model?: string | null
+          payload?: Json
+          period_label?: string
+          period_start?: string
+        }
+        Relationships: []
+      }
       allowed_emails: {
         Row: {
           created_at: string
