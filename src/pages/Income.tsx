@@ -23,14 +23,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { Plus, Trash2, X, ListFilter, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeftRight } from "lucide-react";
 
-const INCOME_SOURCES = ["Salary", "Business", "Loan Taken", "Other"] as const;
+const INCOME_SOURCES = ["Salary", "Business", "Loan Taken", "Reimbursement", "Other"] as const;
 type IncomeSource = typeof INCOME_SOURCES[number];
 
 const SOURCE_BADGE: Record<IncomeSource, string> = {
-  Salary:       "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
-  Business:     "bg-blue-100    text-blue-800    dark:bg-blue-900/40    dark:text-blue-300",
-  "Loan Taken": "bg-amber-100   text-amber-800   dark:bg-amber-900/40   dark:text-amber-300",
-  Other:        "bg-gray-100    text-gray-800    dark:bg-gray-800/40    dark:text-gray-300",
+  Salary:         "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+  Business:       "bg-blue-100    text-blue-800    dark:bg-blue-900/40    dark:text-blue-300",
+  "Loan Taken":   "bg-amber-100   text-amber-800   dark:bg-amber-900/40   dark:text-amber-300",
+  Reimbursement:  "bg-sky-100     text-sky-800     dark:bg-sky-900/40     dark:text-sky-300",
+  Other:          "bg-gray-100    text-gray-800    dark:bg-gray-800/40    dark:text-gray-300",
 };
 
 function SourceBadge({ source }: { source: string }) {
@@ -227,6 +228,7 @@ export default function Income() {
                             {s === "Salary" && "Monthly salary"}
                             {s === "Business" && "Business income"}
                             {s === "Loan Taken" && "Borrowed / loan received"}
+                            {s === "Reimbursement" && "Work cash paid back"}
                             {s === "Other" && "Other source"}
                           </span>
                         </SelectItem>
