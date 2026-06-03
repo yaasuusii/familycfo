@@ -16,11 +16,16 @@ import {
   useCreateRecurringIncome, useCreateRecurringExpense,
   useUpdateRecurring, useDeleteRecurring,
 } from "@/hooks/useRecurringData";
+import { useRecurringSuggestions } from "@/hooks/useRecurringSuggestions";
+import type { RecurringSuggestion } from "@/lib/recurring-detect";
 import { formatETB } from "@/lib/format";
-import { Plus, Pause, Play, Trash2, History } from "lucide-react";
+import { Plus, Pause, Play, Trash2, History, Sparkles, X, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+
+const INCOME_SOURCES = ["Salary", "Business", "Other"];
+type FormInitial = { title: string; group: string; amount: number; frequency: string };
 
 function getNextDueDate(rule: { start_date: string; last_generated_date: string | null; frequency: string }): string {
   const base = rule.last_generated_date ? new Date(rule.last_generated_date) : new Date(rule.start_date);
@@ -50,6 +55,22 @@ export default function RecurringTransactions() {
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [historyId, setHistoryId] = useState<{ id: string; type: "income" | "expense" } | null>(null);
 
+  // Suggested recurring rules (deterministic detection, no AI).
+  const { incomeSuggestions, expenseSuggestions, dismiss } = useRecurringSuggestions();
+  const [incomeInitial, setIncomeInitial] = useState<FormInitial | null>(null);
+  const [expenseInitial, setExpenseInitial] = useState<FormInitial | null>(null);
+
+  const addFromSuggestion = (s: RecurringSuggestion) => {
+    const initial: FormInitial = { title: s.title, group: s.group, amount: s.amount, frequency: s.frequency };
+    if (s.kind === "income") {
+      setIncomeInitial(initial);
+      setShowAddIncome(true);
+    } else {
+      setExpenseInitial(initial);
+      setShowAddExpense(true);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -65,15 +86,19 @@ export default function RecurringTransactions() {
 
         <TabsContent value="income" className="space-y-4">
           {isAdmin && (
-            <Dialog open={showAddIncome} onOpenChange={setShowAddIncome}>
+            <Dialog open={showAddIncome} onOpenChange={(o) => { setShowAddIncome(o); if (!o) setIncomeInitial(null); }}>
               <DialogTrigger asChild>
-                <Button size="sm"><Plus className="h-4 w-4 mr-1" />Add Recurring Income</Button>
+                <Button size="sm" onClick={() => setIncomeInitial(null)}><Plus className="h-4 w-4 mr-1" />Add Recurring Income</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Add Recurring Income</DialogTitle></DialogHeader>
-                <AddIncomeForm userId={user?.id ?? ""} onSuccess={() => setShowAddIncome(false)} mutate={createIncome} />
+                <AddIncomeForm key={incomeInitial?.title ?? "new"} userId={user?.id ?? ""} initial={incomeInitial} onSuccess={() => { setShowAddIncome(false); setIncomeInitial(null); }} mutate={createIncome} />
               </DialogContent>
             </Dialog>
+          )}
+
+          {isAdmin && incomeSuggestions.length > 0 && (
+            <SuggestionList suggestions={incomeSuggestions} onAdd={addFromSuggestion} onDismiss={dismiss} />
           )}
           <Card>
             <CardContent className="p-0">
@@ -159,15 +184,19 @@ export default function RecurringTransactions() {
 
         <TabsContent value="expenses" className="space-y-4">
           {isAdmin && (
-            <Dialog open={showAddExpense} onOpenChange={setShowAddExpense}>
+            <Dialog open={showAddExpense} onOpenChange={(o) => { setShowAddExpense(o); if (!o) setExpenseInitial(null); }}>
               <DialogTrigger asChild>
-                <Button size="sm"><Plus className="h-4 w-4 mr-1" />Add Recurring Expense</Button>
+                <Button size="sm" onClick={() => setExpenseInitial(null)}><Plus className="h-4 w-4 mr-1" />Add Recurring Expense</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Add Recurring Expense</DialogTitle></DialogHeader>
-                <AddExpenseForm userId={user?.id ?? ""} categories={categories} onSuccess={() => setShowAddExpense(false)} mutate={createExpense} />
+                <AddExpenseForm key={expenseInitial?.title ?? "new"} userId={user?.id ?? ""} initial={expenseInitial} categories={categories} onSuccess={() => { setShowAddExpense(false); setExpenseInitial(null); }} mutate={createExpense} />
               </DialogContent>
             </Dialog>
+          )}
+
+          {isAdmin && expenseSuggestions.length > 0 && (
+            <SuggestionList suggestions={expenseSuggestions} onAdd={addFromSuggestion} onDismiss={dismiss} />
           )}
           <Card>
             <CardContent className="p-0">
@@ -266,6 +295,48 @@ export default function RecurringTransactions() {
   );
 }
 
+function SuggestionList({ suggestions, onAdd, onDismiss }: {
+  suggestions: RecurringSuggestion[];
+  onAdd: (s: RecurringSuggestion) => void;
+  onDismiss: (key: string) => void;
+}) {
+  return (
+    <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.05] to-transparent">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Sparkles className="h-4 w-4 text-primary" /> Suggested from your history
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">Repeating transactions we spotted. Review and add — nothing is created automatically.</p>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {suggestions.map((s) => (
+          <div key={s.key} className="flex items-center gap-3 rounded-lg border bg-card p-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate font-medium">{s.title}</p>
+                <Badge variant="outline" className="shrink-0 capitalize">{s.frequency}</Badge>
+                {s.confidence === "high" && <Badge variant="secondary" className="shrink-0">Strong</Badge>}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {s.group} · seen {s.months} months · last {s.lastDate}
+              </p>
+            </div>
+            <span className="shrink-0 font-semibold tnum">{formatETB(s.amount)}</span>
+            <div className="flex shrink-0 gap-1">
+              <Button size="sm" onClick={() => onAdd(s)}>
+                <Check className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Add</span>
+              </Button>
+              <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => onDismiss(s.key)} aria-label="Dismiss">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 function HistoryList({ recurringId, type }: { recurringId: string; type: "income" | "expense" }) {
   const table = type === "income" ? "income" : "expenses";
   const { data = [] } = useQuery({
@@ -290,11 +361,11 @@ function HistoryList({ recurringId, type }: { recurringId: string; type: "income
   );
 }
 
-function AddIncomeForm({ userId, onSuccess, mutate }: { userId: string; onSuccess: () => void; mutate: any }) {
-  const [title, setTitle] = useState("");
-  const [source, setSource] = useState("Salary");
-  const [amount, setAmount] = useState("");
-  const [frequency, setFrequency] = useState("monthly");
+function AddIncomeForm({ userId, onSuccess, mutate, initial }: { userId: string; onSuccess: () => void; mutate: any; initial?: FormInitial | null }) {
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [source, setSource] = useState(initial && INCOME_SOURCES.includes(initial.group) ? initial.group : "Salary");
+  const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
+  const [frequency, setFrequency] = useState(initial?.frequency ?? "monthly");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState("");
   const [autoPost, setAutoPost] = useState(true);
@@ -335,11 +406,11 @@ function AddIncomeForm({ userId, onSuccess, mutate }: { userId: string; onSucces
   );
 }
 
-function AddExpenseForm({ userId, categories, onSuccess, mutate }: { userId: string; categories: any[]; onSuccess: () => void; mutate: any }) {
-  const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("");
-  const [amount, setAmount] = useState("");
-  const [frequency, setFrequency] = useState("monthly");
+function AddExpenseForm({ userId, categories, onSuccess, mutate, initial }: { userId: string; categories: any[]; onSuccess: () => void; mutate: any; initial?: FormInitial | null }) {
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [category, setCategory] = useState(initial?.group ?? "");
+  const [amount, setAmount] = useState(initial ? String(initial.amount) : "");
+  const [frequency, setFrequency] = useState(initial?.frequency ?? "monthly");
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState("");
   const [autoPost, setAutoPost] = useState(true);
