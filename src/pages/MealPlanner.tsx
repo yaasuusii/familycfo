@@ -14,8 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   ChevronLeft, ChevronRight, Plus, Copy, AlertTriangle, Droplets,
-  UtensilsCrossed, Baby, Sparkles, Loader2, ShoppingCart, Check,
+  UtensilsCrossed, Baby, Sparkles, Loader2, ShoppingCart, Check, CalendarPlus,
 } from "lucide-react";
+import { googleCalendarUrl } from "@/lib/calendar";
 import {
   useMealPlan, useMeals, useCreateMealPlan, useUpsertMeal, useDeleteMeal,
   useFoodWarnings, useWaterIntake, useUpsertWater,
@@ -491,6 +492,8 @@ export default function MealPlanner() {
           mealType={editingSlot.type}
           existing={getMeal(editingSlot.day, editingSlot.type)}
           warnings={warnings}
+          weekStart={weekStart}
+          household={householdSize}
           onClose={() => setEditingSlot(null)}
           onSave={upsertMeal}
           onDelete={deleteMeal}
@@ -519,13 +522,15 @@ export default function MealPlanner() {
 }
 
 function MealDialog({
-  planId, day, mealType, existing, warnings, onClose, onSave, onDelete,
+  planId, day, mealType, existing, warnings, weekStart, household, onClose, onSave, onDelete,
 }: {
   planId: string;
   day: number;
   mealType: MealType;
   existing: any;
   warnings: any[];
+  weekStart: string;
+  household: number;
   onClose: () => void;
   onSave: any;
   onDelete: any;
@@ -662,6 +667,29 @@ function MealDialog({
                 ))}
               </div>
             </div>
+          )}
+
+          {existing && (
+            <Button asChild variant="outline" className="w-full">
+              <a
+                href={googleCalendarUrl(
+                  {
+                    name: name.trim() || existing.name,
+                    meal_type: mealType,
+                    day_of_week: day,
+                    notes,
+                    estimated_cost: cost ? parseFloat(cost) : existing.estimated_cost,
+                    meal_ingredients: existing.meal_ingredients,
+                  },
+                  weekStart,
+                  household,
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <CalendarPlus className="mr-2 h-4 w-4" /> Add to Google Calendar
+              </a>
+            </Button>
           )}
 
           <div className="flex gap-2 pt-2">
