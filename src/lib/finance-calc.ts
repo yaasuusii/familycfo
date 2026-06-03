@@ -49,21 +49,30 @@ export function isTransfer(r: { is_self_transfer?: boolean | null }): boolean {
   return Boolean(r.is_self_transfer);
 }
 
-/** Income excluding self-transfers, loans taken, and reimbursement paybacks. */
+/**
+ * Income excluding self-transfers and loans taken.
+ * Reimbursement paybacks DO count as real income — they offset the matching
+ * spend, and any per-diem/partial difference nets out automatically.
+ */
 export function realIncome(rows: IncomeRow[]): IncomeRow[] {
-  return rows.filter((r) => !isTransfer(r) && !isIncomeLoan(r) && !isIncomeReimbursement(r));
+  return rows.filter((r) => !isTransfer(r) && !isIncomeLoan(r));
 }
 
-/** Expenses excluding self-transfers, loan repayments, and reimbursed (paid-back) spend. */
+/**
+ * Expenses excluding self-transfers and loan repayments.
+ * Reimbursable spend ALWAYS counts as real money out (cash left the account).
+ * The matching Reimbursement income cancels it; if the lump payback differs
+ * from the sum, the net difference is correctly reflected.
+ */
 export function realExpenses<T extends ExpenseRow>(rows: T[]): T[] {
-  return rows.filter((r) => !isTransfer(r) && !isExpenseLoan(r) && !isReimbursed(r));
+  return rows.filter((r) => !isTransfer(r) && !isExpenseLoan(r));
 }
 
 
 export type IncomeBreakdown = {
-  real: number;          // spendable income
+  real: number;          // spendable income (INCLUDES reimbursements)
   loans: number;         // money borrowed
-  reimbursements: number; // work paybacks (cash returned)
+  reimbursements: number; // work paybacks (subset of real)
   transfers: number;     // self-transfers
   all: number;           // raw total
 };
@@ -73,18 +82,19 @@ export function incomeBreakdown(rows: IncomeRow[]): IncomeBreakdown {
   for (const r of rows) {
     const amt = Number(r.amount) || 0;
     all += amt;
-    if (isTransfer(r)) transfers += amt;
-    else if (isIncomeLoan(r)) loans += amt;
-    else if (isIncomeReimbursement(r)) reimbursements += amt;
-    else real += amt;
+    if (isTransfer(r)) { transfers += amt; continue; }
+    if (isIncomeLoan(r)) { loans += amt; continue; }
+    // everything else is real income; reimbursements are a tracked subset
+    real += amt;
+    if (isIncomeReimbursement(r)) reimbursements += amt;
   }
   return { real, loans, reimbursements, transfers, all };
 }
 
 export type ExpenseBreakdown = {
-  real: number;               // actual spending (incl. pending reimbursables — still out of pocket)
+  real: number;               // actual spending — ALL reimbursable spend included (cash left account)
   loans: number;              // loan repayments
-  reimbursed: number;         // paid-back spend (netted out)
+  reimbursed: number;         // paid-back spend (subset of real; offset by Reimbursement income)
   pendingReimbursable: number; // reimbursable awaiting payback (subset of real)
   transfers: number;          // self-transfers
   all: number;                // raw total
@@ -95,13 +105,12 @@ export function expenseBreakdown(rows: ExpenseRow[]): ExpenseBreakdown {
   for (const r of rows) {
     const amt = Number(r.amount) || 0;
     all += amt;
-    if (isTransfer(r)) transfers += amt;
-    else if (isExpenseLoan(r)) loans += amt;
-    else if (isReimbursed(r)) reimbursed += amt;
-    else {
-      real += amt;
-      if (isPendingReimbursable(r)) pendingReimbursable += amt;
-    }
+    if (isTransfer(r)) { transfers += amt; continue; }
+    if (isExpenseLoan(r)) { loans += amt; continue; }
+    // everything else is real spend; reimbursable rows are tracked subsets
+    real += amt;
+    if (isReimbursed(r)) reimbursed += amt;
+    else if (isPendingReimbursable(r)) pendingReimbursable += amt;
   }
   return { real, loans, reimbursed, pendingReimbursable, transfers, all };
 }

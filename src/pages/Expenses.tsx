@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, Trash2, X, ListFilter, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeftRight, Sparkles } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCallback } from "react";
 
@@ -60,6 +61,10 @@ export default function Expenses() {
   const [hideTransfers, setHideTransfers] = useState(false);
   const [categorySuggestion, setCategorySuggestion] = useState<string | null>(null);
   const [fetchingReceipt, setFetchingReceipt] = useState(false);
+  const [selectedReimburse, setSelectedReimburse] = useState<Set<string>>(new Set());
+  const [settleOpen, setSettleOpen] = useState(false);
+  const [settleAmount, setSettleAmount] = useState("");
+  const [settling, setSettling] = useState(false);
 
   // Auto-suggest category from receipt URL or notes text
   const suggestCategoryFromNotes = useCallback(async (notes: string) => {
@@ -183,6 +188,21 @@ export default function Expenses() {
 
   const totalFiltered = filtered.reduce((s, e) => s + Number(e.amount), 0);
   const bd = expenseBreakdown(filtered);
+
+  // Pending reimbursables the current user owns — selectable for bulk settle.
+  const pendingReimbursables = filtered.filter(
+    (e) => e.is_reimbursable && e.reimbursement_status !== "received" && e.user_id === user?.id
+  );
+  const selectedRows = expenses.filter((e) => selectedReimburse.has(e.id));
+  const selectedSum = selectedRows.reduce((s, e) => s + Number(e.amount), 0);
+  const isReimbursable = (e: typeof expenses[number]) =>
+    e.is_reimbursable && e.reimbursement_status !== "received" && e.user_id === user?.id;
+  const toggleReimburse = (id: string) =>
+    setSelectedReimburse((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   const excludedNote = [
     bd.transfers > 0 ? `${formatETB(bd.transfers)} self-transfers` : null,
     bd.loans > 0 ? `${formatETB(bd.loans)} loan repayments` : null,
@@ -240,24 +260,46 @@ export default function Expenses() {
     queryClient.invalidateQueries({ queryKey: ["expenses"] });
   };
 
-  const handleMarkReimbursed = async (e: typeof expenses[number]) => {
-    if (!user) return;
-    const { error } = await supabase.from("expenses").update({ reimbursement_status: "received" }).eq("id", e.id);
-    if (error) { toast.error(error.message); return; }
-    // Auto-create the offsetting payback income (nets the expense to zero).
-    const { error: incErr } = await supabase.from("income").insert({
-      user_id: user.id,
-      date: new Date().toISOString().slice(0, 10),
-      source: REIMBURSEMENT_INCOME_SOURCE,
-      amount: Number(e.amount),
-      payment_method: e.payment_method,
-      notes: `Reimbursement: ${e.notes || e.category}`,
-      is_self_transfer: false,
-    });
-    if (incErr) toast.error("Marked paid back, but income record failed");
-    else toast.success("Reimbursement received");
-    queryClient.invalidateQueries({ queryKey: ["expenses"] });
-    queryClient.invalidateQueries({ queryKey: ["income"] });
+  const openSettle = () => {
+    if (selectedRows.length === 0) return;
+    setSettleAmount(String(selectedSum)); // default = sum; user may change (per-diem/partial)
+    setSettleOpen(true);
+  };
+
+  // Settle one OR many reimbursables with a SINGLE payback that may differ from
+  // the sum. Marks all selected received and records ONE Reimbursement income =
+  // the actual amount received. The net (spend − payback) auto-corrects any gap.
+  const handleSettle = async () => {
+    if (!user || settling) return;
+    const rows = selectedRows;
+    if (rows.length === 0) return;
+    const amount = parseFloat(settleAmount);
+    if (!(amount > 0)) { toast.error("Enter the amount received"); return; }
+    setSettling(true);
+    try {
+      const ids = rows.map((r) => r.id);
+      const { error } = await supabase
+        .from("expenses").update({ reimbursement_status: "received" }).in("id", ids);
+      if (error) { toast.error(error.message); return; }
+      const label = rows.length === 1 ? (rows[0].notes || rows[0].category) : `${rows.length} expenses`;
+      const { error: incErr } = await supabase.from("income").insert({
+        user_id: user.id,
+        date: new Date().toISOString().slice(0, 10),
+        source: REIMBURSEMENT_INCOME_SOURCE,
+        amount,
+        payment_method: rows[0].payment_method,
+        notes: `Reimbursement: ${label}`,
+        is_self_transfer: false,
+      });
+      if (incErr) toast.error("Marked paid back, but income record failed");
+      else toast.success(`Settled ${rows.length} — ${formatETB(amount)} received`);
+      setSelectedReimburse(new Set());
+      setSettleOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["income"] });
+    } finally {
+      setSettling(false);
+    }
   };
 
   const handleCategoryChange = async (id: string, category: string) => {
@@ -400,7 +442,7 @@ export default function Expenses() {
                   <Label className="text-sm font-medium">Reimbursable</Label>
                   <p className="text-xs text-muted-foreground">
                     {form.is_reimbursable
-                      ? "Counts as spend until paid back, then nets to zero"
+                      ? "Counts as spend now; the payback is logged as income (net auto-corrects)"
                       : "Work cash you'll get back (travel, meetups)"}
                   </p>
                 </div>
@@ -479,6 +521,58 @@ export default function Expenses() {
         />
       </Reveal>
 
+      {/* Bulk-settle bar — appears when reimbursables are selected */}
+      {selectedRows.length > 0 && (
+        <div className="sticky top-2 z-30 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-sky-300 bg-sky-50 px-4 py-3 shadow-sm dark:border-sky-800 dark:bg-sky-950/40">
+          <div className="text-sm">
+            <span className="font-semibold text-sky-900 dark:text-sky-200">
+              {selectedRows.length} reimbursable{selectedRows.length === 1 ? "" : "s"} selected
+            </span>
+            <span className="ml-2 text-sky-700 dark:text-sky-300">sum {formatETB(selectedSum)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {selectedRows.length < pendingReimbursables.length && (
+              <Button variant="ghost" size="sm" onClick={() => setSelectedReimburse(new Set(pendingReimbursables.map((e) => e.id)))}>
+                Select all ({pendingReimbursables.length})
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => setSelectedReimburse(new Set())}>Clear</Button>
+            <Button size="sm" onClick={openSettle}>Settle…</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Settle dialog — one payback that may differ from the sum */}
+      <Dialog open={settleOpen} onOpenChange={setSettleOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Settle reimbursement</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+              <p className="text-muted-foreground">
+                Marking <span className="font-medium text-foreground">{selectedRows.length}</span> expense{selectedRows.length === 1 ? "" : "s"} as paid back
+                · sum <span className="font-medium text-foreground">{formatETB(selectedSum)}</span>
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Amount actually received (ETB)</Label>
+              <Input
+                type="number" step="0.01" min="0.01"
+                value={settleAmount}
+                onChange={(e) => setSettleAmount(e.target.value)}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                Defaults to the sum. Change it for a per-diem or partial payback — the difference
+                stays in your net automatically.
+              </p>
+            </div>
+            <Button onClick={handleSettle} className="w-full" disabled={settling}>
+              {settling ? "Settling…" : `Record ${formatETB(parseFloat(settleAmount) || 0)} received`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base space-y-2">
@@ -551,8 +645,11 @@ export default function Expenses() {
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <Money amount={Number(e.amount)} className="font-semibold text-foreground" />
-                    {e.is_reimbursable && e.reimbursement_status !== "received" && e.user_id === user?.id && (
-                      <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => handleMarkReimbursed(e)}>Paid back</Button>
+                    {isReimbursable(e) && (
+                      <label className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-sky-700 dark:text-sky-300">
+                        <Checkbox checked={selectedReimburse.has(e.id)} onCheckedChange={() => toggleReimburse(e.id)} />
+                        Settle
+                      </label>
                     )}
                     {e.user_id === user?.id && (
                       <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleDelete(e.id)} aria-label="Delete expense">
@@ -729,9 +826,12 @@ export default function Expenses() {
                     ) : e.notes}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      {e.is_reimbursable && e.reimbursement_status !== "received" && e.user_id === user?.id && (
-                        <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => handleMarkReimbursed(e)}>Paid back</Button>
+                    <div className="flex items-center justify-end gap-2">
+                      {isReimbursable(e) && (
+                        <label className="flex cursor-pointer items-center gap-1.5 text-xs font-medium text-sky-700 dark:text-sky-300">
+                          <Checkbox checked={selectedReimburse.has(e.id)} onCheckedChange={() => toggleReimburse(e.id)} />
+                          Settle
+                        </label>
                       )}
                       {e.user_id === user?.id && (
                         <Button variant="ghost" size="icon" onClick={() => handleDelete(e.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
