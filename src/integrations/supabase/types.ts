@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      allowed_emails: {
+        Row: {
+          created_at: string
+          email: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+        }
+        Relationships: []
+      }
       budgets: {
         Row: {
           category: string
@@ -676,6 +691,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_household: { Args: { _uid: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "member"
