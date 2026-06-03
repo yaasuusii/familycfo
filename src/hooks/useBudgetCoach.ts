@@ -175,8 +175,8 @@ export function useBudgetCoach(selMonth: number, selYear: number, existing: Exis
 
   const generate = useMutation({
     mutationFn: async (m: BudgetMetrics) => {
-      const { data, error } = await supabase.functions.invoke("financial-insights", {
-        body: { metrics: m, mode: "budget" },
+      const { data, error } = await supabase.functions.invoke("budget-insights", {
+        body: { metrics: m },
       });
       if (error) throw new Error(await fnErrorDetail(error));
       if (data?.error && !data?.payload) throw new Error(data.error);

@@ -8,6 +8,10 @@ verify_jwt = true
 [functions.generate-meal-plan]
 verify_jwt = true
 
-[functions.financial-insights]
-# Gated to authenticated household sessions; runs with service role internally.
+[functions.forecast-insights]
+# Gated to authenticated household sessions; caches via service role internally.
+verify_jwt = true
+
+[functions.budget-insights]
+# Gated to authenticated household sessions; caches via service role internally.
 verify_jwt = true

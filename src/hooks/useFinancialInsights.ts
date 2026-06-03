@@ -172,7 +172,7 @@ export function useFinancialInsights() {
 
   const generate = useMutation({
     mutationFn: async (m: InsightMetrics) => {
-      const { data, error } = await supabase.functions.invoke("financial-insights", {
+      const { data, error } = await supabase.functions.invoke("forecast-insights", {
         body: { metrics: m },
       });
       if (error) throw new Error(await fnErrorDetail(error));
