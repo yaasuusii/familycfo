@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { getEthiopianMonthDateRange, getEthiopianMonthName } from "@/lib/ethiopian-calendar";
 import { realExpenses, incomeBreakdown, type ExpenseRow, type IncomeRow } from "@/lib/finance-calc";
-import type { InsightAI } from "@/hooks/useFinancialInsights";
+import { fnErrorDetail, type InsightAI } from "@/hooks/useFinancialInsights";
 
 const HISTORY_MONTHS = 3; // prior Eth months averaged for the suggestion
 const MARKUP = 1.05; // suggested limit = avg spend + 5% headroom
@@ -178,7 +178,7 @@ export function useBudgetCoach(selMonth: number, selYear: number, existing: Exis
       const { data, error } = await supabase.functions.invoke("financial-insights", {
         body: { metrics: m, mode: "budget" },
       });
-      if (error) throw error;
+      if (error) throw new Error(await fnErrorDetail(error));
       if (data?.error && !data?.payload) throw new Error(data.error);
       return (data.payload as any).ai as InsightAI;
     },

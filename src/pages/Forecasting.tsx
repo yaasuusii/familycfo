@@ -132,9 +132,12 @@ function AiInsightCard({ ai }: { ai: ReturnType<typeof useFinancialInsights> }) 
             <Loader2 className="h-4 w-4 animate-spin" /> Reading your numbers…
           </div>
         ) : ai.error && !data ? (
-          <p className="py-2 text-sm text-muted-foreground">
-            Couldn't generate insight. {ai.canRefresh && "Try Refresh."}
-          </p>
+          <div className="py-2">
+            <p className="text-sm text-muted-foreground">
+              Couldn't generate insight. {ai.canRefresh && "Try Refresh."}
+            </p>
+            <p className="mt-1 break-words text-xs text-destructive/80">{ai.error.message}</p>
+          </div>
         ) : !data ? (
           <p className="py-2 text-sm text-muted-foreground">
             No insight yet. {ai.canRefresh ? "Tap Refresh to generate." : "Ask an admin to generate one."}

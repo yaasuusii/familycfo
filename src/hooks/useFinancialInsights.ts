@@ -175,7 +175,7 @@ export function useFinancialInsights() {
       const { data, error } = await supabase.functions.invoke("financial-insights", {
         body: { metrics: m },
       });
-      if (error) throw error;
+      if (error) throw new Error(await fnErrorDetail(error));
       if (data?.error && !data?.payload) throw new Error(data.error);
       return data.payload as InsightPayload;
     },
@@ -212,4 +212,20 @@ export function useFinancialInsights() {
 
 function round(n: number): number {
   return Math.round(n);
+}
+
+/**
+ * `supabase.functions.invoke` rejects with a generic "non-2xx" message and
+ * hides the function's JSON body on `error.context`. Pull the real `error`
+ * string out so the UI can show the actual cause.
+ */
+export async function fnErrorDetail(error: unknown): Promise<string> {
+  const e = error as { message?: string; context?: Response };
+  try {
+    const body = await e.context?.clone().json();
+    if (body?.error) return String(body.error);
+  } catch {
+    /* body not JSON or already consumed */
+  }
+  return e.message || "Edge function call failed";
 }
