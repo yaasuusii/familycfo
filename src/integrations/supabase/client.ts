@@ -2,8 +2,11 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// The anon/publishable key is meant to ship in the browser bundle (RLS protects
+// the data), so we fall back to literals when the build has no env vars injected.
+// This keeps the app alive even if the Lovable Supabase env config is missing.
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "https://lqhwbwmlvtrpovexiyye.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxaHdid21sdnRycG92ZXhpeXllIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5ODM3ODcsImV4cCI6MjA4NjU1OTc4N30.p3OCeRaV0xb2H_1RdRewiK1bV1NbklsqHXi64T1uvO0";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
