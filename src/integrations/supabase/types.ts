@@ -170,6 +170,7 @@ export type Database = {
           is_self_transfer: boolean | null
           notes: string | null
           payment_method: string
+          receipt_ref: string | null
           recurring_id: string | null
           reimbursement_status: string
           user_id: string
@@ -185,6 +186,7 @@ export type Database = {
           is_self_transfer?: boolean | null
           notes?: string | null
           payment_method: string
+          receipt_ref?: string | null
           recurring_id?: string | null
           reimbursement_status?: string
           user_id: string
@@ -200,6 +202,7 @@ export type Database = {
           is_self_transfer?: boolean | null
           notes?: string | null
           payment_method?: string
+          receipt_ref?: string | null
           recurring_id?: string | null
           reimbursement_status?: string
           user_id?: string
@@ -237,6 +240,7 @@ export type Database = {
           is_self_transfer: boolean | null
           notes: string | null
           payment_method: string | null
+          receipt_ref: string | null
           recurring_id: string | null
           source: string
           user_id: string
@@ -250,6 +254,7 @@ export type Database = {
           is_self_transfer?: boolean | null
           notes?: string | null
           payment_method?: string | null
+          receipt_ref?: string | null
           recurring_id?: string | null
           source: string
           user_id: string
@@ -263,6 +268,7 @@ export type Database = {
           is_self_transfer?: boolean | null
           notes?: string | null
           payment_method?: string | null
+          receipt_ref?: string | null
           recurring_id?: string | null
           source?: string
           user_id?: string
