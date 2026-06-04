@@ -47,33 +47,6 @@ export type Database = {
         }
         Relationships: []
       }
-      savings_goals: {
-        Row: {
-          created_at: string
-          created_by: string
-          current_amount: number
-          id: string
-          name: string
-          target_amount: number
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string
-          current_amount?: number
-          id?: string
-          name: string
-          target_amount: number
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          current_amount?: number
-          id?: string
-          name?: string
-          target_amount?: number
-        }
-        Relationships: []
-      }
       allowed_emails: {
         Row: {
           created_at: string
@@ -691,6 +664,33 @@ export type Database = {
           source?: string
           start_date?: string
           title?: string
+        }
+        Relationships: []
+      }
+      savings_goals: {
+        Row: {
+          created_at: string
+          created_by: string
+          current_amount: number
+          id: string
+          name: string
+          target_amount: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          current_amount?: number
+          id?: string
+          name: string
+          target_amount: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          current_amount?: number
+          id?: string
+          name?: string
+          target_amount?: number
         }
         Relationships: []
       }
