@@ -17,7 +17,7 @@ export default function Forecasting() {
   const period = useMemo(() => getFinancialPeriod(), []);
   const { data: income = [] } = useIncome(period);
   const { data: expenses = [] } = useExpenses(period);
-  const { upcomingExpenses, upcomingIncome } = useUpcomingRecurringForMonth();
+  const { upcomingExpenses, upcomingIncome } = useUpcomingRecurringForMonth(period);
 
   // Real totals exclude self-transfers and loan movements.
   const totalIncome = useMemo(() => incomeBreakdown(income).real, [income]);

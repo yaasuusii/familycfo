@@ -135,7 +135,11 @@ export function projectPeriod(
   );
   const daysRemaining = daysInMonth - dayOfMonth;
 
-  const dailyRate = dayOfMonth > 0 ? totalExpenses / dayOfMonth : 0;
+  // Smooth the early-cycle spike: dividing by 1–2 elapsed days turns one big
+  // purchase into an absurd month projection. Divide by at least 3 days so the
+  // daily rate (and the projection) settles instead of swinging wildly.
+  const rateDays = Math.max(dayOfMonth, Math.min(3, daysInMonth));
+  const dailyRate = totalExpenses / rateDays;
   const projectedExpenses = dailyRate * daysInMonth;
   const projectedBalance =
     totalIncome + upcomingIncome - (projectedExpenses + upcomingExpenses);

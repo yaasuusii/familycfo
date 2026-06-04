@@ -82,7 +82,7 @@ export function useFinancialInsights() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { upcomingIncome, upcomingExpenses } = useUpcomingRecurringForMonth();
+  const { upcomingIncome, upcomingExpenses } = useUpcomingRecurringForMonth(current);
   const { data: activeLoans = [] } = useLoans("active");
 
   const metrics = useMemo<InsightMetrics | null>(() => {

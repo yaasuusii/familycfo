@@ -27,7 +27,7 @@ import { useMealPlan, useMeals, usePregnancyProfile, getTrimester, getWeekStart,
 import { useCachedForecast } from "@/hooks/useFinancialInsights";
 import { SavingsGoalsCard } from "@/components/SavingsGoalsCard";
 import { formatETB, formatPercent } from "@/lib/format";
-import { getCurrentEthiopianMonth, getCurrentEthMonth, getEthiopianMonthName } from "@/lib/ethiopian-calendar";
+import { getCurrentEthiopianMonth, getEthiopianMonthName } from "@/lib/ethiopian-calendar";
 import {
   TrendingUp, TrendingDown, Wallet, ShoppingCart, PiggyBank, Target,
   AlertTriangle, Landmark, HandCoins, Scale, RefreshCw,
@@ -58,9 +58,6 @@ export default function Dashboard() {
   const { data: prevIncome = [] } = useIncome(prevPeriod);
   const { data: prevExpenses = [] } = useExpenses(prevPeriod);
   const { data: budgets = [] } = useBudgets(eth.month, eth.year);
-  // Budget widget tracks the Ethiopian month (same window as Budgets page) so "spent" agrees.
-  const ethMonthStr = useMemo(() => getCurrentEthMonth(), []);
-  const { data: budgetExpenses = [] } = useExpenses(ethMonthStr);
   const { data: allLoans = [] } = useLoans();
   const upcomingItems = useUpcomingRecurring();
 
@@ -93,7 +90,7 @@ export default function Dashboard() {
   const totalIncome = incBd.real;
   const totalExpenses = expBd.real;
   const remaining = totalIncome - totalExpenses;
-  const grocerySpend = useMemo(() => expenses.filter((e) => e.category === "Grocery").reduce((s, e) => s + Number(e.amount), 0), [expenses]);
+  const grocerySpend = useMemo(() => realExpenses(expenses).filter((e) => e.category === "Grocery").reduce((s, e) => s + Number(e.amount), 0), [expenses]);
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
 
   // Month-over-month deltas (vs previous pay-cycle period)
@@ -107,14 +104,17 @@ export default function Dashboard() {
   const loanRepaymentThisMonth = expBd.loans;
   const debtToIncomeRatio = totalIncome > 0 ? (loanRepaymentThisMonth / totalIncome) * 100 : 0;
 
+  // Budget "spent" measured over the pay-cycle period (canonical window), with
+  // self-transfers stripped — they move money between own accounts, not spend.
+  const budgetableExpenses = useMemo(() => expenses.filter((e) => !e.is_self_transfer), [expenses]);
   const budgetStats = useMemo(() => {
     return budgets.map((b) => {
-      const actual = budgetExpenses.filter((e) => e.category === b.category).reduce((s, e) => s + Number(e.amount), 0);
+      const actual = budgetableExpenses.filter((e) => e.category === b.category).reduce((s, e) => s + Number(e.amount), 0);
       const limit = Number(b.monthly_limit);
       const pct = limit > 0 ? (actual / limit) * 100 : 0;
       return { category: b.category, limit, actual, pct, remaining: limit - actual };
     });
-  }, [budgets, budgetExpenses]);
+  }, [budgets, budgetableExpenses]);
 
   const totalBudget = budgetStats.reduce((s, b) => s + b.limit, 0);
   const totalBudgetSpent = budgetStats.reduce((s, b) => s + b.actual, 0);
@@ -139,7 +139,7 @@ export default function Dashboard() {
   );
 
   // Shared projection — Forecasting uses the same helper so numbers can't drift.
-  const { upcomingIncome, upcomingExpenses } = useUpcomingRecurringForMonth();
+  const { upcomingIncome, upcomingExpenses } = useUpcomingRecurringForMonth(period);
   const { dayOfMonth, daysInMonth, projectedBalance: projectedRemaining } =
     projectPeriod(period, totalIncome, totalExpenses, upcomingIncome, upcomingExpenses);
 

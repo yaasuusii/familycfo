@@ -49,8 +49,9 @@ export default function Budgets() {
 
   const isAdmin = role === "admin";
 
+  // Self-transfers move money between own accounts — never count them as spend.
   const getActual = (category: string) =>
-    expenses.filter((e) => e.category === category).reduce((s, e) => s + Number(e.amount), 0);
+    expenses.filter((e) => e.category === category && !e.is_self_transfer).reduce((s, e) => s + Number(e.amount), 0);
 
   const budgetStats = useMemo(() => {
     return budgets.map((b) => {

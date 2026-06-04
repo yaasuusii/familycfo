@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMemo } from "react";
-import { getCurrentEthiopianMonth, getEthiopianDaysInMonth, toGregorian } from "@/lib/ethiopian-calendar";
+import type { FinancePeriod } from "@/lib/finance-period";
 
 export function useRecurringIncome() {
   return useQuery({
@@ -169,16 +169,19 @@ export function useUpcomingRecurring() {
   }, [incomeRules, expenseRules]);
 }
 
-export function useUpcomingRecurringForMonth() {
+/**
+ * Sum recurring income/expenses still due between now and the END of the given
+ * pay-cycle period. Must use the SAME window as projectPeriod's totals, or the
+ * projected balance adds future items from one calendar onto a total measured
+ * over another (the old Ethiopian-month-end version did exactly that).
+ */
+export function useUpcomingRecurringForMonth(period: FinancePeriod) {
   const { data: incomeRules = [] } = useRecurringIncome();
   const { data: expenseRules = [] } = useRecurringExpenses();
 
   return useMemo(() => {
     const now = new Date();
-    // Use Ethiopian month end instead of Gregorian
-    const eth = getCurrentEthiopianMonth();
-    const daysInMonth = getEthiopianDaysInMonth(eth.month, eth.year);
-    const endOfMonth = toGregorian(eth.year, eth.month, daysInMonth);
+    const endOfMonth = new Date(period.end + "T23:59:59Z");
 
     let upcomingExpenses = 0;
     let upcomingIncome = 0;
@@ -204,5 +207,5 @@ export function useUpcomingRecurringForMonth() {
     }
 
     return { upcomingExpenses, upcomingIncome };
-  }, [incomeRules, expenseRules]);
+  }, [incomeRules, expenseRules, period.end]);
 }
